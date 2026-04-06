@@ -1,204 +1,169 @@
 # Projectr Analytics — Data Sources
 
-This document covers every public data source used in the platform: what it provides, how to access it, the geography level it operates at, update frequency, and how it feeds into the pipeline.
-
-**Rule of thumb**: Pull once per city, normalize to census tract or ZIP, write to BigQuery. Do not build live ingestion for the hackathon.
+Two categories: **ownership data** (identifies which properties are institutionally owned) and **impact data** (measures what happened to the neighborhoods after acquisition).
 
 ---
 
-## 1. U.S. Census Bureau — American Community Survey (ACS)
+## Ownership Data
 
-**What it provides**: The richest neighborhood-level demographic and housing data available publicly. This is your primary source for rent, vacancy, income, and population metrics.
+### 1. TCAD — Travis County Appraisal District (Primary Source)
 
-**Why it matters for the health score**: Median rent and vacancy rate are the two most direct signals of neighborhood housing market conditions. Income growth is the gentrification signal.
+The anchor dataset. TCAD maintains the official property tax roll for all parcels in Travis County, including owner name, mailing address, property address, and appraised values.
 
-**API base URL**: `https://api.census.gov/data`
+**Where to download**: [traviscad.org/publicinformation](https://www.traviscad.org/publicinformation/)
 
-**Auth**: Free API key required. Register at [api.census.gov/data/key_signup.html](https://api.census.gov/data/key_signup.html). The key is a query parameter: `&key=YOUR_KEY`.
+**What to download**: EARS (Electronic Appraisal Roll Submission) files — one per year. Look for the PTD CSV in each year's submission. These are 700MB–1GB per year.
 
-**Which dataset to use**: ACS 5-Year Estimates (`acs/acs5`). The 5-year provides the finest geographic granularity (down to census tract). 1-year estimates only go to the county level.
+**Files currently on disk** (in `raw_tcad_data/`, gitignored):
 
-**Geography level**: Census tract (most granular available). Also available at ZIP Code Tabulation Area (ZCTA) level.
-
-**Update frequency**: Annual. The most recent full release is typically the prior calendar year.
-
-**Key variables and table IDs**:
-
-| Variable | Table | Description |
+| File | Year | Size |
 |---|---|---|
-| Median gross rent | `B25064_001E` | Median gross rent (all bedrooms) |
-| Rental vacancy rate | `B25004_002E` / `B25004_001E` | For-rent vacant / total vacant units |
-| Median household income | `B19013_001E` | Median household income in past 12 months |
-| Total population | `B01003_001E` | Total population |
-| Gross rent as % of income | `B25070` table | Distribution of rent burden |
+| `20210925_000416_PTD.csv` | 2021 | 716 MB |
+| `227EARS092822.csv` | 2022 | 744 MB |
+| `227EARS083023.csv` | 2023 | 760 MB |
+| `227EARS082824.csv` | 2024 | 973 MB |
 
-**Example API call** (median rent by census tract in Virginia, state FIPS 51):
+2025 data was extracted separately from PROP.TXT (the certified export format). That file has been processed and deleted — output preserved in `processed_owners/institutional_owners_2025_PROP.csv`.
 
-```
-https://api.census.gov/data/2022/acs/acs5?get=B25064_001E,NAME&for=tract:*&in=state:51&key=YOUR_KEY
-```
+**Key fields**: Owner name, property ID, property address, mailing address, property type code, appraised value.
 
-**Getting year-over-year change**: Pull the same variables for two consecutive years (e.g., 2021 and 2022) and compute the delta in the pipeline. The Census API returns one year per call.
+**Auth**: None. Public data, free download from the TCAD website.
 
-**Geography crosswalk**: Census tracts are identified by an 11-digit FIPS code: `state(2) + county(3) + tract(6)`. Use this as your `geo_id`.
+**How the pipeline uses it**: The identification engine (`scripts/master_pipeline.py` + `scripts/clean_data.py`) streams each year's CSV, matches owner names against known institutional patterns, clusters by mailing address zip codes, filters out false positives, and outputs cleaned per-year CSVs.
 
-**GeoJSON boundaries**: Download TIGER/Line shapefiles from [census.gov/geographies/mapping-files](https://www.census.gov/geographies/mapping-files.html). Convert to GeoJSON with `ogr2ogr` or upload to mapshaper.org for a web-based conversion. You need these for the map polygon overlays.
+### 2. TCAD ArcGIS Parcel API (Supplemental — Geocoding)
+
+For geocoding property addresses to lat/lng coordinates for the map.
+
+**API endpoint**: `https://gis.traviscountytx.gov/server1/rest/services/Boundaries_and_Jurisdictions/TCAD_public/MapServer/0/query`
+
+**Query format**: `?where=1%3D1&outFields=*&f=json&resultOffset=0&resultRecordCount=2000`
+
+Paginate by incrementing `resultOffset` by 2000. Returns parcel geometry with `py_owner_name` field. Updated monthly by Travis County TNR.
+
+**Hub site**: [tnr-traviscountytx.hub.arcgis.com](https://tnr-traviscountytx.hub.arcgis.com/) — downloadable as CSV, GeoJSON, or Shapefile.
+
+**Auth**: None. Public API.
+
+### 3. SEC EDGAR — Corporate Subsidiary Verification
+
+Invitation Homes and AMH file 10-K and 10-Q reports that list their subsidiary LLC names by state. These filings confirm which LLCs belong to which parent company.
+
+**Use case**: Seed the identification engine keyword list with confirmed Texas LLC names rather than guessing patterns.
+
+**Key confirmed entities from SEC filings**:
+- Invitation Homes: IH1–IH6 holding entities, THR Property Management LP (Starwood Waypoint legacy)
+- AMH: AMH 2014-1/2 Borrower LLC, AMH 2015-1/2 Borrower LLC, AH4R Properties LLC
 
 ---
 
-## 2. FRED — Federal Reserve Economic Data
+## Impact Data (Neighborhood Context)
 
-**What it provides**: Macroeconomic indicators at the metro/MSA level. This is your source for job growth and unemployment, which operate at a higher geographic level than census tracts.
+### 4. U.S. Census Bureau — American Community Survey (ACS)
 
-**Why it matters for the health score**: Job growth is the fundamental driver of housing demand. A metro adding jobs will see housing pressure downstream. Unemployment trends signal economic health.
+The primary source for measuring neighborhood-level impact of institutional buying.
 
-**API base URL**: `https://api.stlouisfed.org/fred`
+**API**: `https://api.census.gov/data`
 
-**Auth**: Free API key required. Register at [fred.stlouisfed.org/docs/api/api_key.html](https://fred.stlouisfed.org/docs/api/api_key.html).
+**Auth**: Free API key — register at [api.census.gov/data/key_signup.html](https://api.census.gov/data/key_signup.html)
 
-**Geography level**: Metropolitan Statistical Area (MSA). FRED does not have sub-city granularity. Apply the MSA-level metric uniformly to all census tracts within that MSA — it's a macro signal, not a neighborhood signal.
+**Dataset**: ACS 5-Year Estimates (`acs/acs5`) — finest geography (census tract level).
 
-**Update frequency**: Monthly for employment data; quarterly for some series.
+**Key variables for the story**:
 
-**Key series to pull**:
-
-| Series ID Pattern | Description | Example |
+| Variable | Table | Why It Matters |
 |---|---|---|
-| `[MSA_CODE]UR` | Unemployment rate | `ROAUR` (Roanoke, VA) |
-| `SMU[FIPS]000000001SA` | Total nonfarm employment | `SMU51440000000001SA` |
-| `[MSA_CODE]NGSP` | GDP growth (some metros) | Varies |
+| Homeownership rate | `B25003_002E` / `B25003_001E` | Owner-occupied / total occupied units — the core metric. Did institutional buying reduce homeownership? |
+| Median gross rent | `B25064_001E` | Did rents rise faster in institutional-heavy tracts? |
+| Rent burden (>30% of income) | `B25070` table | Are residents paying more of their income toward rent? |
+| Median household income | `B19013_001E` | Did the income profile of the neighborhood shift? |
+| Total population | `B01003_001E` | Population change — displacement signal |
 
-**Finding MSA codes**: Use the FRED series search UI at fred.stlouisfed.org or the `/fred/series/search` endpoint. Search for your city name + "unemployment" to find the right series ID.
+**Pull for years**: 2019 (pre-wave baseline) and 2023 (post-wave). Compute the delta.
 
-**Example API call** (Roanoke unemployment rate, last 24 months):
+**Geography**: Census tract (11-digit FIPS). Travis County tracts start with `48453`.
 
+**Example API call** (homeownership by tract in Travis County):
 ```
-https://api.stlouisfed.org/fred/series/observations?series_id=ROAUR&observation_start=2022-01-01&api_key=YOUR_KEY&file_type=json
+https://api.census.gov/data/2023/acs/acs5?get=B25003_001E,B25003_002E,NAME&for=tract:*&in=state:48&in=county:453&key=YOUR_KEY
 ```
 
-**In the pipeline**: Pull 24 months of data, compute YoY change and 6-month trend. Join to the census tract data on MSA FIPS code.
+### 5. FRED — Federal Reserve Economic Data
 
----
+MSA-level economic context for Austin.
 
-## 3. HUD — Fair Market Rents (FMR)
+**API**: `https://api.stlouisfed.org/fred`
 
-**What it provides**: HUD's annual estimates of what a modest rental unit costs in a given area, by bedroom count. Used as a market baseline/benchmark — useful for comparing actual rents against HUD's affordability estimate.
+**Auth**: Free API key — register at [fred.stlouisfed.org](https://fred.stlouisfed.org/docs/api/api_key.html)
 
-**Why it matters**: FMR data lets you flag markets where actual rents are significantly above or below the HUD baseline, which is a signal of affordability pressure or slack demand.
+**Key series**:
 
-**Access**: Two options:
-1. **Annual CSV download** (simplest): [huduser.gov/portal/datasets/fmr.html](https://www.huduser.gov/portal/datasets/fmr.html). Download the latest year's FMR schedule as a CSV.
-2. **HUD API**: `https://www.huduser.gov/hudapi/public/fmr` — requires a free token from the HUD User portal.
-
-**Auth for API**: Register at [huduser.gov/portal/site/huduser/signup](https://www.huduser.gov/portal/site/huduser/signup). Token passed as `Bearer` header.
-
-**Geography level**: ZIP code and HUD Fair Market Rent Area (which roughly corresponds to MSA or county). Not census-tract level.
-
-**Update frequency**: Annual (HUD publishes new FMRs each fall for the following fiscal year).
-
-**Key fields in the FMR CSV**:
-
-| Field | Description |
+| Series | Description |
 |---|---|
-| `fips2010` | County/area FIPS code |
-| `fmr_0` | Efficiency (studio) FMR |
-| `fmr_1` | 1-bedroom FMR |
-| `fmr_2` | 2-bedroom FMR |
-| `fmr_3` | 3-bedroom FMR |
-| `fmr_4` | 4-bedroom FMR |
+| `AUSUR` | Austin unemployment rate |
+| `SMU48122000000000001SA` | Austin total nonfarm employment |
 
-**In the pipeline**: Join on county FIPS (first 5 digits of census tract FIPS). Use 2-bedroom FMR as the benchmark. Compute the ratio of actual median rent (from ACS) to the HUD FMR — a ratio above 1.0 means the market is above the affordability baseline.
+**Geography**: Metro/MSA level (Austin-Round Rock-Georgetown). Applied uniformly to all tracts — this is macro context, not neighborhood-level.
 
----
+**Pull 24 months** for trend calculation.
 
-## 4. City Open Data Portals — Building Permits
+### 6. Zillow Research Data
 
-**What it provides**: Records of building permits filed with the city for new construction or major renovation. This is the most powerful leading indicator in the dataset — developers file permits before they break ground, so permit activity tells you where capital is moving before it shows up in rent data.
+Monthly rent and home value indexes — fills the recency gap between annual Census snapshots.
 
-**Why it matters for the health score**: A surge in permit filings in a neighborhood is a strong forward-looking signal. It means professionals who underwrite real estate for a living are betting on that area.
-
-**Auth**: Most city open data portals are fully public, no key required.
-
-**Update frequency**: Near real-time (updated as permits are filed).
-
-**Platforms most cities use**:
-- **Socrata** (socrata.com) — Most common. Has a standardized API (SODA). If you see `data.cityname.gov`, it's almost certainly Socrata.
-- **ArcGIS REST API** — Some cities use Esri's open data hub.
-- **Custom portals** — Some larger cities have their own.
-
-**Roanoke, VA (primary city)**:
-- Portal: `data.roanokeva.gov`
-- Check for a "Building Permits" or "Permits Issued" dataset
-- Socrata API endpoint format: `https://data.roanokeva.gov/resource/[dataset_id].json`
-
-**Standard fields to extract** (Socrata permit datasets typically include):
-
-| Field | Description |
-|---|---|
-| `permit_date` or `issued_date` | When the permit was filed |
-| `permit_type` | New construction, renovation, demolition, etc. |
-| `address` | Street address of the permit |
-| `latitude` / `longitude` | Coordinates (if geocoded — usually available) |
-| `valuation` | Estimated construction value (not always present) |
-
-**In the pipeline**:
-1. Pull all permits from the last 24 months
-2. Filter to construction-relevant types (exclude electrical/plumbing permits for existing structures if granularity allows)
-3. Geocode to census tract using the lat/lng + a spatial join against your TIGER/Line tract boundaries
-4. Aggregate: count of permits per tract per 12-month window, compute YoY change
-
-**Handling cities without a permit API**: If the target city doesn't have a public permit portal, fall back to pulling permit data from the state-level open data portal (Virginia has one), or use the Census Bureau's Building Permits Survey (`census.gov/construction/bps/`) which provides permit counts at the county and place level as a coarser fallback.
-
----
-
-## 5. Zillow Research Data (Optional / Supplement)
-
-**What it provides**: Zillow's proprietary rent index and home value index, published as free CSV downloads. The Zillow Observed Rent Index (ZORI) is a useful supplement to ACS rent data because it updates monthly (vs. ACS annually) and covers more recent market conditions.
-
-**Why it's optional**: ACS is the authoritative source for the health score. Zillow fills in the recency gap — if you want to show rent trend lines through the current month rather than stopping at last year's ACS data.
-
-**Access**: No API, no auth. Direct CSV downloads at: `https://www.zillow.com/research/data/`
+**Access**: Free CSV downloads at [zillow.com/research/data](https://www.zillow.com/research/data/)
 
 **Key datasets**:
 
 | Dataset | Description | Geography |
 |---|---|---|
-| ZORI (Smoothed, All Homes, Monthly) | Observed rent index, monthly | Metro, City, ZIP |
-| ZHVI (All Homes, Monthly) | Home value index | Metro, City, ZIP, Neighborhood |
+| ZORI (Smoothed, All Homes, Monthly) | Observed rent index | ZIP code |
+| ZHVI (All Homes, Monthly) | Home value index | ZIP code |
 
-**Geography level**: ZIP code is the finest granularity for ZORI. Join to census tracts via ZIP-to-tract crosswalk (available from HUD: `huduser.gov/portal/datasets/usps_crosswalk.html`).
+**Auth**: None. Public CSV downloads.
 
-**Update frequency**: Monthly.
+**Use case**: Monthly rent trend sparklines in the UI. Shows the rent trajectory through the institutional buying wave with much more granularity than Census annual data.
 
-**In the pipeline**: Download the ZORI ZIP-level CSV. Join to tracts via the HUD crosswalk. Use as the time-series rent source for sparklines in the UI (more recent and monthly vs. ACS's annual snapshots). Do not replace ACS in the health score formula — keep ACS for the structural metrics, use Zillow for the trend visualization layer.
+**ZIP-to-tract crosswalk**: Available from HUD at [huduser.gov/portal/datasets/usps_crosswalk.html](https://www.huduser.gov/portal/datasets/usps_crosswalk.html).
+
+### 7. HUD — Fair Market Rents
+
+Annual benchmark for what a modest rental costs in a given area.
+
+**Access**: CSV download at [huduser.gov/portal/datasets/fmr.html](https://www.huduser.gov/portal/datasets/fmr.html) or API at `https://www.huduser.gov/hudapi/public/fmr`
+
+**Auth for API**: Free token from [huduser.gov signup](https://www.huduser.gov/portal/site/huduser/signup)
+
+**Key field**: `fmr_2` (2-bedroom Fair Market Rent) — used as a benchmark to flag markets where actual rents exceed the affordability baseline.
+
+**Geography**: County and ZIP code level.
 
 ---
 
-## Geography Reference
+## Institutional Investor Reference
 
-All data gets normalized to one of two geographies:
+Known institutional SFR buyers active in Austin, their parent companies, and HQ mailing addresses used for Layer B clustering:
 
-**Census Tract** (preferred): ~4,000 people per tract. Provides genuine neighborhood granularity. All Census ACS data is available at this level. FRED and HUD data must be joined at the MSA/county level and applied uniformly.
-
-**ZIP Code** (fallback): Coarser than census tracts, but some sources (HUD FMR, Zillow) are only available at ZIP level. Use as fallback when tract-level data isn't available.
-
-**Key crosswalk resources**:
-- TIGER/Line Tract Shapefiles: `census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html`
-- HUD ZIP-to-Tract crosswalk: `huduser.gov/portal/datasets/usps_crosswalk.html`
-- Census Geocoder (API): `geocoding.geo.census.gov/geocoder` — converts addresses to FIPS tract IDs
+| Parent Company | Known LLCs in Travis County | HQ Mailing Zip |
+|---|---|---|
+| American Homes 4 Rent | AMH 2014-1/2 Borrower LLC, AMH 2015-1/2 Borrower LLC, AH4R I TX LLC, AH4R Properties LLC/Two LLC, AMH TX Properties LP, AMH Addison Development LLC, American Homes 4 Rent Properties Two/Eight LLC, American Homes 4 Rent TRS LLC | 91302 (Calabasas, CA) |
+| Progress Residential | Progress Residential Borrower 18/19/20/23/24 LLC, Progress Austin LLC | 85256 (Scottsdale, AZ) |
+| Tricon American Homes | SFR JV-HD 2024-1 Borrower LLC | Toronto (US ops via Atlanta) |
+| Invitation Homes | INVH LP, IH3–IH6 LP, THR Property, Starwood Waypoint, Preeminent Holdings, 2017–2019 IH Borrower LLCs | 75201 (Dallas, TX) |
+| BlackRock (via subsidiaries) | Guthrie Property Owner LP, South Lamar Venture LLC (c/o BlackRock Realty Advisors) | New York / San Francisco |
+| Main Street Renewal | Main Street Renewal LLC | Austin, TX |
+| FirstKey Homes | FirstKey Homes LLC | Atlanta, GA |
 
 ---
 
 ## API Key Checklist
 
-Before running the pipeline, make sure the following keys are in your environment:
-
-| Service | Where to get it | Environment variable |
+| Service | Where to Register | Env Variable |
 |---|---|---|
 | Census ACS | api.census.gov/data/key_signup.html | `CENSUS_API_KEY` |
 | FRED | fred.stlouisfed.org (login → API Keys) | `FRED_API_KEY` |
-| HUD User | huduser.gov/portal/site/huduser/signup | `HUD_API_TOKEN` |
+| HUD | huduser.gov/portal/site/huduser/signup | `HUD_API_TOKEN` |
 | Google Maps | console.cloud.google.com | `GOOGLE_MAPS_KEY` |
 | Gemini | console.cloud.google.com | `GEMINI_API_KEY` |
 
-City permit portals are public — no key needed.
+TCAD data and Zillow Research CSVs require no authentication.

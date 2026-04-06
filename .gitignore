@@ -31,3 +31,6 @@ dist/
 *.env
 secrets.json
 service_account.json
+
+# Raw TCAD data (multi-GB source files — kept locally, not in git)
+raw_tcad_data/

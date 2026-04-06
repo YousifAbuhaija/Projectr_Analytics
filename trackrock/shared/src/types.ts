@@ -104,7 +104,7 @@ export interface SubsidiaryEntityDTO {
   llcName: string;
   parentEntity: ParentEntity;
   confidence: number;
-  source: 'seed_list' | 'gemini' | 'opencorporates';
+  source: 'seed_list' | 'gemini';
   registeredState: string | null;
 }
 

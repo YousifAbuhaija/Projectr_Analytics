@@ -100,7 +100,6 @@ export const CONFIDENCE_BY_MATCH_TYPE: Record<string, number> = {
   cluster: 0.70,           // e.g. "Cluster: 42 entities at PO BOX 99141"
   gemini_high: 0.85,       // Gemini returned confidence >= 0.8
   gemini_medium: 0.65,     // Gemini returned confidence 0.5-0.8
-  opencorporates_boost: 0.15, // Added to gemini_medium when OC confirms
 };
 
 // ── Entity display metadata ────────────────────────────────────────────────────

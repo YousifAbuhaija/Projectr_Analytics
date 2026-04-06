@@ -6,12 +6,10 @@
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 
-const EVICTION_LAB_BASE = 'https://evictionlab.org/eviction-tracking';
-
 // City slug → city config
-const CITY_SLUGS: Record<string, { slug: string; state: string }> = {
-  Austin: { slug: 'austin-tx', state: 'TX' },
-  Atlanta: { slug: 'atlanta-ga', state: 'GA' },
+const CITY_SLUGS: Record<string, { slug: string; state: string; fipsState: string; fipsCounty: string }> = {
+  Austin: { slug: 'austin-tx', state: 'TX', fipsState: '48', fipsCounty: '453' },
+  Atlanta: { slug: 'atlanta-ga', state: 'GA', fipsState: '13', fipsCounty: '121' },
 };
 
 interface EvictionRow {
@@ -39,10 +37,16 @@ export async function fetchEvictionData(city: string): Promise<number> {
 
   logger.info(`[EvictionLab] Fetching eviction data for ${city}...`);
 
-  // Try primary eviction tracking endpoint
+  // Eviction Lab restructured their data distribution in 2023.
+  // Try current download locations in order of likelihood.
   const urls = [
-    `${EVICTION_LAB_BASE}/get-data.php?name=${cfg.slug}&geography=tracts`,
-    `https://evictionlab.org/eviction-tracking/data/${cfg.slug}-tracts.csv`,
+    // Current eviction tracking system (2023+)
+    `https://evictionlab.org/eviction-tracking/data/2023/${cfg.slug}-tracts.csv`,
+    `https://evictionlab.org/eviction-tracking/data/2022/${cfg.slug}-tracts.csv`,
+    // Older bulk download format
+    `https://s3.amazonaws.com/eviction-lab-data-downloads/2023-12-06/${cfg.slug}-tracts.csv`,
+    // Legacy endpoint (pre-2022)
+    `https://evictionlab.org/eviction-tracking/get-data.php?name=${cfg.slug}&geography=tracts`,
   ];
 
   let rows: EvictionRow[] = [];
@@ -80,7 +84,10 @@ export async function fetchEvictionData(city: string): Promise<number> {
   }
 
   if (!rows.length) {
-    logger.warn(`[EvictionLab] No data retrieved for ${city} — skipping (non-fatal)`);
+    logger.warn(
+      `[EvictionLab] All ${urls.length} endpoints returned no data for ${city}. ` +
+      `Eviction Lab restricts bulk tract downloads — visit evictionlab.org to request access. Skipping (non-fatal).`,
+    );
     return 0;
   }
 

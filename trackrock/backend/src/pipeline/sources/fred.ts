@@ -22,7 +22,10 @@ interface FredResponse {
   observations: FredObservation[];
 }
 
-async function fetchFredSeries(seriesId: string): Promise<FredObservation[]> {
+async function fetchFredSeries(
+  seriesId: string,
+  attempt = 1,
+): Promise<FredObservation[]> {
   if (!config.fredKey) {
     logger.warn('[FRED] FRED_API_KEY not set — skipping');
     return [];
@@ -41,7 +44,7 @@ async function fetchFredSeries(seriesId: string): Promise<FredObservation[]> {
   try {
     const res = await fetch(
       `https://api.stlouisfed.org/fred/series/observations?${params}`,
-      { signal: AbortSignal.timeout(15_000) },
+      { signal: AbortSignal.timeout(20_000) },
     );
 
     if (!res.ok) {
@@ -52,7 +55,13 @@ async function fetchFredSeries(seriesId: string): Promise<FredObservation[]> {
     const data = await res.json() as FredResponse;
     return data.observations ?? [];
   } catch (err) {
-    logger.warn(`[FRED] Error fetching ${seriesId}: ${(err as Error).message}`);
+    if (attempt < 3) {
+      const delay = attempt * 3_000;
+      logger.warn(`[FRED] ${seriesId} attempt ${attempt} failed ("${(err as Error).message}") — retrying in ${delay / 1000}s`);
+      await new Promise((r) => setTimeout(r, delay));
+      return fetchFredSeries(seriesId, attempt + 1);
+    }
+    logger.warn(`[FRED] ${seriesId} failed after ${attempt} attempts: ${(err as Error).message}`);
     return [];
   }
 }

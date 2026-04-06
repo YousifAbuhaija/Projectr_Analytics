@@ -8,11 +8,11 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "migrate": "dotenv -e ../.env -- prisma migrate deploy && dotenv -e ../.env -- tsx src/db/applyPostgis.ts",
-    "migrate:dev": "dotenv -e ../.env -- prisma migrate dev",
-    "migrate:deploy": "dotenv -e ../.env -- prisma migrate deploy",
-    "generate": "dotenv -e ../.env -- prisma generate",
-    "studio": "dotenv -e ../.env -- prisma studio"
+    "migrate": "dotenv -e ../../.env -- prisma migrate deploy && dotenv -e ../../.env -- tsx src/db/applyPostgis.ts",
+    "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev",
+    "migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "generate": "dotenv -e ../../.env -- prisma generate",
+    "studio": "dotenv -e ../../.env -- prisma studio"
   },
   "dependencies": {
     "@google/generative-ai": "^0.15.0",

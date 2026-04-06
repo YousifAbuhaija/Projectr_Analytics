@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Load .env from monorepo root (trackrock/.env), not backend/
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 
 const prisma = new PrismaClient();
 

@@ -14,7 +14,7 @@ export function getGenAI(): GoogleGenerativeAI {
   return _genAI;
 }
 
-export function getGeminiModel(modelName = 'gemini-2.0-flash') {
+export function getGeminiModel(modelName = 'gemini-2.5-flash') {
   return getGenAI().getGenerativeModel({
     model: modelName,
     generationConfig: { temperature: 0.1 },

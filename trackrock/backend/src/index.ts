@@ -1,6 +1,7 @@
 import { config } from './config.js';
 import { createServer } from './server.js';
 import { startWorkers } from './jobs/workers.js';
+import { scheduleNightlyConcentration } from './jobs/queues.js';
 import { prisma } from './lib/prisma.js';
 import { redis } from './lib/redis.js';
 import { logger } from './lib/logger.js';
@@ -10,8 +11,10 @@ async function main() {
   await prisma.$connect();
   logger.info('[DB] Connected to PostgreSQL');
 
-  // Start BullMQ workers
+  // Start BullMQ workers + schedule nightly concentration recompute
   const worker = startWorkers();
+  await scheduleNightlyConcentration();
+  logger.info('[Jobs] Nightly concentration recompute scheduled (2 AM UTC)');
 
   // Start HTTP server
   const app = createServer();

@@ -12,6 +12,18 @@ export const pipelineQueue = new Queue('pipeline', {
   },
 });
 
+/** Schedule nightly concentration recompute at 2 AM UTC */
+export async function scheduleNightlyConcentration() {
+  await pipelineQueue.upsertJobScheduler(
+    'nightly-concentration',
+    { pattern: '0 2 * * *' },
+    {
+      name: 'concentration:all',
+      data: { stage: 'concentration' as PipelineStage, city: null },
+    },
+  );
+}
+
 export async function enqueuePipelineStage(
   stage: PipelineStage,
   city: string,

@@ -3,6 +3,7 @@ version: '3.9'
 services:
   postgres:
     image: postgis/postgis:16-3.4
+    platform: linux/arm64/v8
     container_name: trackrock-postgres
     restart: unless-stopped
     environment:
@@ -21,6 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    platform: linux/arm64/v8
     container_name: trackrock-redis
     restart: unless-stopped
     ports:

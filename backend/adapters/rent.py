@@ -47,56 +47,76 @@ async def _download_apartmentlist_csv() -> str | None:
     return None
 
 
-async def load_rent_data(city: str, state: str) -> list[RentData]:
+async def load_rent_data(city: str, state: str, fips: str = "") -> list[RentData]:
     """Load rent data for a city, trying ApartmentList first, then HUD FMR."""
 
     # Try HUD FMR as the reliable fallback
-    fmr_data = await _fetch_hud_fmr(state)
+    fmr_data = await _fetch_hud_fmr(state, fips)
     if fmr_data:
         return fmr_data
 
     return []
 
 
-async def _fetch_hud_fmr(state: str) -> list[RentData]:
-    """Fetch HUD Fair Market Rents for a state (county-level).
-
-    HUD FMR is available for every US county — reliable fallback.
+async def _fetch_hud_fmr(state: str, fips: str = "") -> list[RentData]:
+    """Fetch HUD Fair Market Rents for a state (county-level) over multiple years.
+    
+    If fips is provided, only returns the matching county to build history.
     """
-    # HUD API requires a token, but we can use the public endpoint
-    url = f"{HUD_FMR_BASE}/statedata/{state}"
+    import asyncio
 
-    async with httpx.AsyncClient(timeout=15) as client:
+    if not config.hud_api_key:
+        print("[Rent] HUD API key missing. Cannot fetch rent data.")
+        return []
+
+    async def fetch_year(client: httpx.AsyncClient, year: int) -> RentData | None:
+        url = f"{HUD_FMR_BASE}/statedata/{state}?year={year}"
         try:
-            headers = {}
+            headers = {"Authorization": f"Bearer {config.hud_api_key}"}
             resp = await client.get(url, headers=headers)
             if resp.status_code != 200:
-                return []
+                print(f"[Rent] HUD fetch failed for {year}: HTTP {resp.status_code}")
+                return None
 
             data = resp.json()
-            results: list[RentData] = []
-
             if isinstance(data, dict) and "data" in data:
-                entries = data["data"]
-                if isinstance(entries, dict):
-                    entries = [entries]
-
-                for entry in entries:
-                    # HUD FMR provides 2BR rent as the benchmark
-                    fmr_2br = entry.get("basicdata", {}).get("fmr_2", 0)
-                    if fmr_2br and fmr_2br > 0:
-                        results.append(RentData(
+                counties = data["data"].get("counties", [])
+                
+                # HUD fips codes are state + county + 99999 (usually 10 digits)
+                # If we have a 5-digit fips (like 51121), it matches the start.
+                target_fips = f"{fips}99999" if fips and len(fips) == 5 else ""
+                
+                for entry in counties:
+                    entry_fips = entry.get("fips_code", "")
+                    
+                    if target_fips and entry_fips != target_fips:
+                        # Some HUD FMR fips might not have 99999 appended or might differ slightly for metros
+                        # so we also check if it starts with the 5-digit FIPS.
+                        if fips and not entry_fips.startswith(fips):
+                            continue
+                            
+                    fmr_2br = entry.get("Two-Bedroom", 0)
+                    if fmr_2br and float(fmr_2br) > 0:
+                        return RentData(
                             city=entry.get("county_name", ""),
                             state=state,
-                            year=2024,
+                            year=year,
                             median_rent=float(fmr_2br),
                             source="hud_fmr",
-                        ))
-
-            return results
-
+                        )
         except (httpx.HTTPError, ValueError, KeyError):
-            return []
+            pass
+        return None
+
+    # Fetch 2022-2026 concurrently to establish a history
+    years = [2022, 2023, 2024, 2025, 2026]
+    async with httpx.AsyncClient(timeout=15) as client:
+        tasks = [fetch_year(client, year) for year in years]
+        raw_results = await asyncio.gather(*tasks)
+        
+    results = [r for r in raw_results if r is not None]
+    results.sort(key=lambda r: r.year)
+    return results
 
 
 def compute_rent_growth(history: list[RentData], years: int = 3) -> float | None:

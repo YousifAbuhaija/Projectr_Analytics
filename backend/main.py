@@ -135,7 +135,9 @@ async def score_university(req: ScoreRequest):
         )
 
     # ── Step 6: Fetch rent data ──
-    rent_history = await rent.load_rent_data(uni.city, uni.state)
+    # Pass fips string to rent loader so we can identify the specific county in HUD
+    fips = f"{state_fips}{county_fips}" if state_fips and county_fips else ""
+    rent_history = await rent.load_rent_data(uni.city, uni.state, fips)
 
     # ── Step 7: Compute score ──
     result = compute_pressure_score(

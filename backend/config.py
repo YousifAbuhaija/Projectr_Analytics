@@ -21,6 +21,9 @@ class Config:
     # Census API (free key from api.census.gov)
     census_api_key: str = ""
 
+    # HUD API (free key from huduser.gov)
+    hud_api_key: str = ""
+
     # Google Maps Platform
     google_maps_key: str = ""
 
@@ -40,6 +43,7 @@ class Config:
         return cls(
             scorecard_api_key=os.getenv("SCORECARD_API_KEY", ""),
             census_api_key=os.getenv("CENSUS_API_KEY", ""),
+            hud_api_key=os.getenv("HUD_API_KEY", ""),
             google_maps_key=os.getenv("GOOGLE_MAPS_API_KEY", ""),
             gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
             host=os.getenv("HOST", "0.0.0.0"),

@@ -1,0 +1,146 @@
+Phase 1: FastAPI Backend + Data Adapters (Day 1)
+Get all 5 data sources fetching real data.
+1.1 Project Scaffold
+[NEW] backend/ — FastAPI project
+
+
+backend/
+├── main.py              # FastAPI app + CORS + routes
+├── config.py            # API keys from env vars
+├── requirements.txt     # fastapi, uvicorn, httpx, h3, pandas
+├── Dockerfile           # Cloud Run deployment
+├── adapters/
+│   ├── scorecard.py     # College Scorecard — university metadata + lat/lon
+│   ├── ipeds.py         # Urban Institute — 10yr enrollment trend
+│   ├── census_bps.py    # Census BPS — building permits by FIPS place
+│   ├── census_acs.py    # Census ACS — housing units by tract
+│   ├── rent.py          # ApartmentList CSV + HUD FMR fallback
+│   └── __init__.py
+├── scoring/
+│   ├── pressure.py      # Housing Pressure Score formula
+│   ├── h3_hex.py        # H3 hex binning for permits + housing units
+│   └── __init__.py
+├── models/
+│   └── schemas.py       # Pydantic models for all request/response shapes
+└── tests/
+    └── test_adapters.py # Smoke tests against 3 known universities
+1.2 Adapter Build Order (dependencies flow left-to-right)
+
+
+Scorecard (lat/lon, city) → IPEDS (enrollment) → Census BPS (permits)
+                          → ACS (housing units) → ApartmentList (rent)
+                                                          ↓
+                                              Housing Pressure Score
+    1    College Scorecard — first because it gives us unitid, lat, lon, city, state, enrollment. Everything else keys off this.
+    2    IPEDS (Urban Institute) — uses unitid from Scorecard. Returns 10yr enrollment trend.
+    3    Census BPS — uses FIPS place code (derived from city/state). Returns permit counts.
+    4    Census ACS — uses lat/lon to find nearby tracts. Returns housing unit count.
+    5    ApartmentList / HUD — uses city name. Returns median rent + trend.
+1.3 Scoring Engine
+The Housing Pressure Score from the report has 3 components:
+Component
+Weight
+Source
+Formula
+Enrollment Pressure
+40%
+IPEDS
+5yr enrollment CAGR normalized to [0, 100]
+Permit Gap
+35%
+Census BPS + ACS
+1 - (permits_5yr / housing_units) normalized
+Rent Pressure
+25%
+ApartmentList
+3yr rent growth rate normalized to [0, 100]
+Final score = weighted average, clamped to 0–100. Higher = more pressure = better opportunity.
+
+Phase 2: React Frontend + National Map (Day 2)
+2.1 Frontend Scaffold
+[NEW] frontend/ — Vite + React
+
+
+frontend/
+├── index.html
+├── vite.config.ts
+├── package.json
+├── src/
+│   ├── main.tsx
+│   ├── App.tsx
+│   ├── components/
+│   │   ├── NationalMap.tsx    # Google Maps with colored markers for 20 universities
+│   │   ├── SidePanel.tsx      # Score breakdown, charts, Gemini summary
+│   │   ├── SearchBar.tsx      # Type university name → trigger fetch
+│   │   └── ScoreGauge.tsx     # Visual score display (0-100)
+│   ├── hooks/
+│   │   └── useScore.ts        # React Query hook for /score endpoint
+│   ├── lib/
+│   │   └── api.ts             # Fetch wrapper for backend
+│   └── styles/
+│       └── index.css
+2.2 National Map View
+    •    Google Maps JS API with 20 pre-scored university markers
+    •    Color coding: 🔴 Red (high pressure, 70+) → 🟡 Yellow (40-70) → 🟢 Green (low, <40)
+    •    Click marker → side panel opens with score breakdown + Recharts chart
+2.3 Pre-scored University Set (from report)
+University
+City
+Why Selected
+Virginia Tech
+Blacksburg, VA
+Home university
+UT Austin
+Austin, TX
+Known housing crisis
+Arizona State
+Tempe, AZ
+Largest US enrollment
+UNC Charlotte
+Charlotte, NC
+Fast-growing Sun Belt
+U of Florida
+Gainesville, FL
+Classic college town
+...
+...
+(20 total from report)
+
+Phase 3: Gemini Agent + City View (Day 3)
+3.1 Gemini Orchestration Agent
+    •    Function-calling agent with 4 tools: fetch_enrollment, fetch_permits, fetch_rent, compute_score
+    •    User types a university name → Gemini sequences the API calls → returns score + analysis
+    •    POST /score endpoint handles the full pipeline
+3.2 H3 Hex Choropleth (City View)
+    •    When user clicks a marker, transition from national view to city-level H3 hex map
+    •    Resolution 8 hexes overlaid on Google Maps via Data Layer
+    •    Color by permit density or housing unit density
+3.3 Gemini Market Summary
+    •    After score computation, Gemini generates a 2-3 paragraph market summary
+    •    Rendered in the side panel below the charts
+
+Phase 4: Polish + Demo (Day 4)
+    •    UI polish: dark mode, typography, loading states, error handling
+    •    Validate all 20 pre-pull universities end-to-end
+    •    Record demo video
+    •    Deploy: backend to Cloud Run, frontend to Firebase Hosting
+
+Verification Plan
+Automated Tests
+    •    pytest backend/tests/ — adapter smoke tests against 3 known universities
+    •    Frontend: npm run build passes without errors
+    •    Score validation: Virginia Tech and UT Austin should score >60 (high pressure)
+Manual Verification
+    •    National map renders 20 colored markers
+    •    Click VT → side panel shows score breakdown with charts
+    •    Search "University of Kentucky" → on-the-fly fetch + score
+    •    Gemini summary appears in side panel
+
+Open Questions
+IMPORTANT
+
+    1    API keys — which do you have? I can start with mock data but real keys are better.
+    2    Repo name — keep Projectr_Analytics or rename to CampusLens?
+    3    Firebase project — do you have an existing Firebase project, or should I set one up?
+    4    Gemini model — Gemini 2.5 Flash (fast, cheap) or Gemini 2.5 Pro (smarter)?
+    5    Timeline — is this a 4-day sprint starting now, or more relaxed?

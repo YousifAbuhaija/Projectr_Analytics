@@ -2,6 +2,7 @@ import { useState } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { streamScore } from "./lib/api";
 import { fetchHexGrid } from "./lib/hexApi";
+import { readCache, writeEntry } from "./lib/storage";
 import { SearchBar } from "./components/ui/SearchBar";
 import { MapView } from "./components/MapView";
 import { SidePanel } from "./components/SidePanel";
@@ -21,9 +22,13 @@ function App() {
   // Which pin/university is currently focused in the side panel
   const [selectedName, setSelectedName] = useState<string | null>(null);
 
-  // Persistent caches — computed results stay until explicitly recomputed
-  const [scoreCache, setScoreCache] = useState<Record<string, HousingPressureScore>>({});
-  const [hexCache, setHexCache] = useState<Record<string, HexGeoJSON>>({});
+  // Persistent caches — hydrated from localStorage on mount, survive refreshes for 24 h
+  const [scoreCache, setScoreCache] = useState<Record<string, HousingPressureScore>>(
+    () => readCache<HousingPressureScore>("campuslens_scores")
+  );
+  const [hexCache, setHexCache] = useState<Record<string, HexGeoJSON>>(
+    () => readCache<HexGeoJSON>("campuslens_hex")
+  );
 
   // Loading / log state (for the currently running computation)
   const [loading, setLoading] = useState(false);
@@ -46,10 +51,13 @@ function App() {
         if (event.type === "log") {
           setAgentLogs((prev) => [...prev, { message: event.message, ts: new Date() }]);
         } else if (event.type === "result") {
-          // Store in persistent cache keyed by the queried name
           setScoreCache((prev) => ({ ...prev, [name]: event.data }));
+          writeEntry("campuslens_scores", name, event.data);
           fetchHexGrid(event.data.university.name)
-            .then((hex) => setHexCache((prev) => ({ ...prev, [name]: hex })))
+            .then((hex) => {
+              setHexCache((prev) => ({ ...prev, [name]: hex }));
+              writeEntry("campuslens_hex", name, hex);
+            })
             .catch(() => {});
           setLoading(false);
         } else if (event.type === "error") {

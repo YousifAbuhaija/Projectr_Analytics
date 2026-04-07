@@ -3,6 +3,8 @@ import { APIProvider } from "@vis.gl/react-google-maps";
 import { streamScore } from "./lib/api";
 import { fetchHexGrid } from "./lib/hexApi";
 import { readCache, writeEntry } from "./lib/storage";
+import { UNIVERSITIES } from "./lib/universityList";
+import type { UniversitySuggestion } from "./lib/universityList";
 import { SearchBar } from "./components/ui/SearchBar";
 import { MapView } from "./components/MapView";
 import { SidePanel } from "./components/SidePanel";
@@ -16,13 +18,22 @@ interface LogEntry {
   ts: Date;
 }
 
+/** Extract a bare hostname from a Scorecard URL like "www.vt.edu" or "https://vt.edu/". */
+function extractDomain(url: string | null): string {
+  if (!url) return "";
+  try {
+    const withProto = url.startsWith("http") ? url : `https://${url}`;
+    return new URL(withProto).hostname.replace(/^www\./, "");
+  } catch {
+    return url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+  }
+}
+
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Which pin/university is currently focused in the side panel
   const [selectedName, setSelectedName] = useState<string | null>(null);
 
-  // Persistent caches — hydrated from localStorage on mount, survive refreshes for 24 h
+  // Persistent score + hex caches — survive page refresh for 24 h
   const [scoreCache, setScoreCache] = useState<Record<string, HousingPressureScore>>(
     () => readCache<HousingPressureScore>("campuslens_scores")
   );
@@ -30,16 +41,19 @@ function App() {
     () => readCache<HexGeoJSON>("campuslens_hex")
   );
 
-  // Loading / log state (for the currently running computation)
+  // Dynamic universities discovered via search — appear as map pins and suggestions
+  const [dynamicUnis, setDynamicUnis] = useState<Record<string, UniversitySuggestion>>(
+    () => readCache<UniversitySuggestion>("campuslens_dynamic_unis")
+  );
+
   const [loading, setLoading] = useState(false);
   const [agentLogs, setAgentLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Derived — what the side panel shows right now
   const activeScore = selectedName ? (scoreCache[selectedName] ?? null) : null;
   const activeHexData = selectedName ? (hexCache[selectedName] ?? null) : null;
 
-  // ── Core computation ────────────────────────────────────────────────────────
+  // ── Core computation ──────────────────────────────────────────────────────
 
   const runReport = async (name: string) => {
     setLoading(true);
@@ -51,14 +65,50 @@ function App() {
         if (event.type === "log") {
           setAgentLogs((prev) => [...prev, { message: event.message, ts: new Date() }]);
         } else if (event.type === "result") {
-          setScoreCache((prev) => ({ ...prev, [name]: event.data }));
+          const uni = event.data.university;
+          const actualName = uni.name;
+
+          // ── Score cache: store under query key AND actual university name ──
+          // This ensures pin clicks (which use actualName) also hit the cache.
+          setScoreCache((prev) => {
+            const next = { ...prev, [name]: event.data };
+            if (actualName !== name) next[actualName] = event.data;
+            return next;
+          });
           writeEntry("campuslens_scores", name, event.data);
-          fetchHexGrid(event.data.university.name)
+          if (actualName !== name) writeEntry("campuslens_scores", actualName, event.data);
+
+          // ── Dynamic pin: add if not already in the static list ────────────
+          const inStatic =
+            UNIVERSITIES.some((u) => u.name === name) ||
+            UNIVERSITIES.some((u) => u.name === actualName);
+
+          if (!inStatic) {
+            const newPin: UniversitySuggestion = {
+              name: actualName,
+              city: uni.city,
+              state: uni.state,
+              lat: uni.lat,
+              lon: uni.lon,
+              domain: extractDomain(uni.url),
+            };
+            setDynamicUnis((prev) => ({ ...prev, [actualName]: newPin }));
+            writeEntry("campuslens_dynamic_unis", actualName, newPin);
+          }
+
+          // ── Hex cache ─────────────────────────────────────────────────────
+          fetchHexGrid(actualName)
             .then((hex) => {
-              setHexCache((prev) => ({ ...prev, [name]: hex }));
+              setHexCache((prev) => {
+                const next = { ...prev, [name]: hex };
+                if (actualName !== name) next[actualName] = hex;
+                return next;
+              });
               writeEntry("campuslens_hex", name, hex);
+              if (actualName !== name) writeEntry("campuslens_hex", actualName, hex);
             })
             .catch(() => {});
+
           setLoading(false);
         } else if (event.type === "error") {
           setError(event.message);
@@ -71,17 +121,15 @@ function App() {
     }
   };
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
-  // Pin click or suggestion select — navigate to university, show preview or cached result
+  /** Pin click or suggestion select — show preview or cached result, no auto-compute. */
   const handleSelectUniversity = (name: string) => {
     setSelectedName(name);
     setSearchQuery(name);
-    // No computation — PreviewPanel shows with "Generate Report" button
-    // If already cached, ScorePanel shows instantly
   };
 
-  // Search bar "Enter" or "Search for X" row — explicit request to compute
+  /** Search bar Enter or "Search for X" — explicit compute request. */
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = searchQuery.trim();
@@ -90,13 +138,13 @@ function App() {
     await runReport(name);
   };
 
-  // "Generate Report" button in PreviewPanel
+  /** "Generate Report" button in PreviewPanel. */
   const handleGenerateReport = async (name: string) => {
     setSelectedName(name);
     await runReport(name);
   };
 
-  // "Recompute" button in ScorePanel
+  /** "Recompute" button in ScorePanel. */
   const handleRecompute = async () => {
     if (!selectedName) return;
     await runReport(selectedName);
@@ -109,6 +157,7 @@ function App() {
         onChange={setSearchQuery}
         onSubmit={handleSearch}
         onSelectUniversity={handleSelectUniversity}
+        extraUniversities={Object.values(dynamicUnis)}
         disabled={loading}
       />
       <main className="flex-1 flex mt-[73px]">
@@ -116,6 +165,7 @@ function App() {
           <MapView
             selectedName={selectedName}
             scoreCache={scoreCache}
+            dynamicUnis={dynamicUnis}
             activeHexData={activeHexData}
             onPinClick={handleSelectUniversity}
           />

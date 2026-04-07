@@ -1,12 +1,14 @@
 import { useRef, useEffect, useState } from "react";
 import { Search, X, MapPin, ArrowRight } from "lucide-react";
 import { UNIVERSITIES } from "../../lib/universityList";
+import type { UniversitySuggestion } from "../../lib/universityList";
 
 interface SearchBarProps {
   query: string;
   onChange: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onSelectUniversity: (name: string) => void;
+  extraUniversities?: UniversitySuggestion[];
   disabled?: boolean;
 }
 
@@ -15,17 +17,24 @@ export function SearchBar({
   onChange,
   onSubmit,
   onSelectUniversity,
+  extraUniversities = [],
   disabled,
 }: SearchBarProps) {
+  // Merge static list + previously searched universities, deduplicated by name
+  const staticNames = new Set(UNIVERSITIES.map((u) => u.name));
+  const allUniversities = [
+    ...UNIVERSITIES,
+    ...extraUniversities.filter((e) => !staticNames.has(e.name)),
+  ];
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
 
-  // Filter static university list by query
+  // Filter combined university list by query
   const suggestions =
     query.trim().length > 0
-      ? UNIVERSITIES.filter((u) =>
+      ? allUniversities.filter((u) =>
           [u.name, u.city, u.state].some((s) =>
             s.toLowerCase().includes(query.toLowerCase())
           )

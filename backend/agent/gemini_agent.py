@@ -171,15 +171,23 @@ async def score_with_streaming(
             return
 
         if req.unitid:
-            uni = await scorecard.get_university_by_id(req.unitid)
+            meta_pair = await scorecard.get_university_by_id_with_strength(req.unitid)
         else:
-            uni = await scorecard.search_university(req.university_name)
+            meta_pair = await scorecard.search_university_with_strength(req.university_name)
 
-        if not uni:
+        if not meta_pair:
             yield _error_event(f"University not found: {req.university_name}")
             return
+        uni, institutional_strength = meta_pair
 
         yield _log_event(f"Found: {uni.name} ({uni.city}, {uni.state}) — IPEDS ID {uni.unitid}")
+        if institutional_strength is not None:
+            ret = institutional_strength.retention_rate
+            ret_str = f"{ret*100:.0f}%" if ret is not None else "n/a"
+            ownership = institutional_strength.ownership_label or "unknown"
+            yield _log_event(
+                f"Institutional profile: {ownership}, retention {ret_str}"
+            )
 
         if uni.unitid in prescored:
             cached = prescored[uni.unitid]
@@ -290,6 +298,7 @@ async def score_with_streaming(
             demographics=demographics,
             housing_capacity=housing_capacity,
             disaster_risk=disaster_risk,
+            institutional_strength=institutional_strength,
         )
         yield _log_event(
             f"Score: {result.score}/100 — "
@@ -297,6 +306,11 @@ async def score_with_streaming(
             f"Permit gap {result.components.permit_gap:.0f} | "
             f"Rent {result.components.rent_pressure:.0f}"
         )
+        if result.institutional_strength and result.institutional_strength.strength_label:
+            yield _log_event(
+                f"Institutional strength: {result.institutional_strength.strength_score}/100 "
+                f"({result.institutional_strength.strength_label})"
+            )
 
         # ── Step 8: Gemini summary ──
         yield _log_event("Generating Gemini market summary...")

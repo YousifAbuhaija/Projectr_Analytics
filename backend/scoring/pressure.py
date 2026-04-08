@@ -27,6 +27,7 @@ from backend.models.schemas import (
     EnrollmentTrend,
     HousingCapacity,
     HousingPressureScore,
+    InstitutionalStrength,
     MarketDemographics,
     PermitData,
     RentData,
@@ -85,6 +86,119 @@ def _rent_score(growth: float | None) -> float:
     return _normalize(growth, -2.0, 12.0)
 
 
+def _endowment_score(per_student: int | None) -> float | None:
+    """Convert endowment-per-student dollars to a 0–100 wealth-cushion score.
+
+    Reference points (from public IPEDS Finance data):
+      <$10k   → 20  (Cal State, regional comprehensives)
+      $50k    → 50  (large flagships, e.g. UT Austin)
+      $100k   → 70  (well-funded flagships, e.g. UMich)
+      $500k+  → 95  (Ivy-tier endowments, e.g. Princeton, Yale)
+      $1M+    → 100
+    """
+    if per_student is None:
+        return None
+    # Log-ish piecewise linear mapping
+    if per_student <= 10_000:
+        return 20.0
+    if per_student <= 50_000:
+        return 20 + (per_student - 10_000) / 40_000 * 30  # 20 → 50
+    if per_student <= 100_000:
+        return 50 + (per_student - 50_000) / 50_000 * 20  # 50 → 70
+    if per_student <= 500_000:
+        return 70 + (per_student - 100_000) / 400_000 * 25  # 70 → 95
+    return min(100.0, 95 + (per_student - 500_000) / 500_000 * 5)  # 95 → 100
+
+
+def _retention_score(rate: float | None) -> float | None:
+    """Map first-year retention rate (0–1) to a 0–100 stability score.
+
+    Retention is the leading indicator of enrollment durability — a flagship
+    bleeding 25% of freshmen has fragile housing demand even at huge size.
+    """
+    if rate is None:
+        return None
+    pct = rate * 100
+    # Floor at 30 so a school with 50% retention isn't pinned to 0.
+    return max(30.0, min(100.0, round(pct, 1)))
+
+
+def _selectivity_score(admission_rate: float | None) -> float | None:
+    """Map admission rate (0–1) to a 0–100 brand-strength score.
+
+    Lower admission rate → more selective → stronger brand → more durable
+    applicant pipeline.  Open-enrollment schools land at the floor of 30.
+    """
+    if admission_rate is None:
+        return None
+    if admission_rate <= 0.10:
+        return 100.0
+    if admission_rate <= 0.30:
+        return 80.0 + (0.30 - admission_rate) / 0.20 * 20  # 80 → 100
+    if admission_rate <= 0.60:
+        return 50.0 + (0.60 - admission_rate) / 0.30 * 30  # 50 → 80
+    return max(30.0, 50.0 - (admission_rate - 0.60) * 50)  # 50 → 30
+
+
+def _pell_penalty(pell_rate: float | None) -> float:
+    """High Pell share signals an institutionally vulnerable student base.
+
+    Pell-dependent students are most exposed to federal aid changes (the
+    research doc explicitly flags this). We dock the strength score
+    accordingly. Returns POSITIVE penalty points to subtract.
+    """
+    if pell_rate is None:
+        return 0.0
+    if pell_rate < 0.30:
+        return 0.0
+    if pell_rate < 0.50:
+        return 5.0
+    return 10.0
+
+
+def compute_strength_score(strength: InstitutionalStrength) -> tuple[float, str]:
+    """Combine the four sub-signals into a 0–100 strength score and label.
+
+    Weighting:
+      40% endowment cushion
+      40% retention stability
+      20% brand selectivity
+      − Pell vulnerability penalty
+
+    Sub-signals that are missing (a common situation for small or non-PhD
+    institutions) are dropped from the average rather than imputed — we re-
+    weight the remaining components so the score still reflects what we know.
+    """
+    endow = _endowment_score(strength.endowment_per_student)
+    retain = _retention_score(strength.retention_rate)
+    select = _selectivity_score(strength.admission_rate)
+
+    parts: list[tuple[float, float]] = []  # (value, weight)
+    if endow is not None:
+        parts.append((endow, 0.40))
+    if retain is not None:
+        parts.append((retain, 0.40))
+    if select is not None:
+        parts.append((select, 0.20))
+
+    if not parts:
+        # Nothing to score on — call it stable and bail.
+        return 50.0, "stable"
+
+    total_weight = sum(w for _, w in parts)
+    base = sum(v * w for v, w in parts) / total_weight
+    score = max(0.0, min(100.0, base - _pell_penalty(strength.pell_grant_rate)))
+
+    if score >= 75:
+        label = "strong"
+    elif score >= 50:
+        label = "stable"
+    else:
+        label = "watch"
+
+    return round(score, 1), label
+
+
 def compute_pressure_score(
     university: UniversityMeta,
     enrollment_trend: list[EnrollmentTrend],
@@ -94,6 +208,7 @@ def compute_pressure_score(
     demographics: MarketDemographics | None = None,
     housing_capacity: HousingCapacity | None = None,
     disaster_risk: DisasterRisk | None = None,
+    institutional_strength: InstitutionalStrength | None = None,
     gemini_summary: str | None = None,
 ) -> HousingPressureScore:
     """Compute the full Housing Pressure Score for a university market."""
@@ -150,6 +265,21 @@ def compute_pressure_score(
         elif disaster_risk.weather_disasters >= 5:
             multiplier *= 0.95
 
+    # 4. Institutional Strength Adjustment
+    # Strong institutions = more durable enrollment = more confidence the
+    # housing demand we're projecting will actually materialize. Watch
+    # institutions get a haircut because the upstream signal (enrollment
+    # trend) may not survive a budget shock.
+    if institutional_strength is not None:
+        s_score, s_label = compute_strength_score(institutional_strength)
+        institutional_strength = institutional_strength.model_copy(
+            update={"strength_score": s_score, "strength_label": s_label}
+        )
+        if s_label == "strong":
+            multiplier *= 1.02
+        elif s_label == "watch":
+            multiplier *= 0.93
+
     final_score = max(0.0, min(100.0, round(raw_score * multiplier, 1)))
 
     components = ScoreComponents(
@@ -169,6 +299,7 @@ def compute_pressure_score(
         demographics=demographics,
         housing_capacity=housing_capacity,
         disaster_risk=disaster_risk,
+        institutional_strength=institutional_strength,
         gemini_summary=gemini_summary,
         scored_at=datetime.now(timezone.utc).isoformat(),
     )

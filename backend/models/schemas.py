@@ -91,6 +91,27 @@ class DisasterRisk(BaseModel):
     most_recent_year: int | None = None
 
 
+class InstitutionalStrength(BaseModel):
+    """University financial / institutional health from College Scorecard.
+
+    Captures the underwriting signals the research doc flags but enrollment
+    trend alone misses: endowment cushion, retention stability, selectivity,
+    and Pell-share vulnerability. The composite ``strength_score`` (0–100)
+    and ``strength_label`` are computed downstream in pressure.py and stitched
+    back in via model_copy.
+    """
+
+    ownership: int | None = None  # 1=public, 2=private nonprofit, 3=for-profit
+    ownership_label: str | None = None
+    endowment_end: int | None = None
+    endowment_per_student: int | None = None
+    pell_grant_rate: float | None = None  # 0–1, share of students on Pell
+    admission_rate: float | None = None  # 0–1, lower = more selective
+    retention_rate: float | None = None  # 0–1, full-time first-year retention
+    strength_score: float | None = None  # 0–100 composite, set in scoring layer
+    strength_label: str | None = None  # "strong" | "stable" | "watch"
+
+
 class HousingPressureScore(BaseModel):
     """Complete Housing Pressure Score for a university market."""
 
@@ -104,6 +125,7 @@ class HousingPressureScore(BaseModel):
     demographics: MarketDemographics | None = None
     housing_capacity: HousingCapacity | None = None
     disaster_risk: DisasterRisk | None = None
+    institutional_strength: InstitutionalStrength | None = None
     gemini_summary: str | None = None
     scored_at: str = ""
 

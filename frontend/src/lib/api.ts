@@ -56,6 +56,18 @@ export interface DisasterRisk {
   most_recent_year: number | null;
 }
 
+export interface InstitutionalStrength {
+  ownership: number | null;
+  ownership_label: string | null;
+  endowment_end: number | null;
+  endowment_per_student: number | null;
+  pell_grant_rate: number | null;
+  admission_rate: number | null;
+  retention_rate: number | null;
+  strength_score: number | null;
+  strength_label: "strong" | "stable" | "watch" | null;
+}
+
 export interface ScoreComponents {
   enrollment_pressure: number;
   permit_gap: number;
@@ -73,6 +85,7 @@ export interface HousingPressureScore {
   demographics: MarketDemographics | null;
   housing_capacity: HousingCapacity | null;
   disaster_risk: DisasterRisk | null;
+  institutional_strength: InstitutionalStrength | null;
   gemini_summary: string | null;
   scored_at: string;
 }

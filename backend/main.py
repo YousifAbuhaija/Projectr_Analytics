@@ -125,14 +125,17 @@ async def score_university(req: ScoreRequest):
                 _prescored[req.unitid] = cached
         return cached
 
-    # ── Step 1: Resolve university metadata ──
+    # ── Step 1: Resolve university metadata + institutional strength ──
+    # Single Scorecard call returns both — strength piggybacks on the same
+    # request via the extended FIELDS string in the adapter.
     if req.unitid:
-        uni = await scorecard.get_university_by_id(req.unitid)
+        meta_pair = await scorecard.get_university_by_id_with_strength(req.unitid)
     else:
-        uni = await scorecard.search_university(req.university_name)
+        meta_pair = await scorecard.search_university_with_strength(req.university_name)
 
-    if not uni:
+    if not meta_pair:
         raise HTTPException(404, f"University not found: {req.university_name}")
+    uni, institutional_strength = meta_pair
 
     # Cache hit by resolved unitid
     if uni.unitid in _prescored:
@@ -193,6 +196,7 @@ async def score_university(req: ScoreRequest):
         demographics=demographics,
         housing_capacity=housing_capacity,
         disaster_risk=disaster_risk,
+        institutional_strength=institutional_strength,
     )
 
     # ── Step 8: Gemini summary ──

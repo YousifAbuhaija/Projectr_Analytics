@@ -1,4 +1,4 @@
-import { TrendingUp, Building2, DollarSign, MapPin, RefreshCw, BedDouble, Home, CloudRain } from "lucide-react";
+import { TrendingUp, Building2, DollarSign, MapPin, RefreshCw, BedDouble, Home, CloudRain, GraduationCap } from "lucide-react";
 import { ScoreGauge } from "../ui/ScoreGauge";
 import { EnrollmentChart } from "../charts/EnrollmentChart";
 import { RentChart } from "../charts/RentChart";
@@ -270,6 +270,75 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
           <p className="text-xs text-zinc-600 mt-0.5">
             FEMA, last {score.disaster_risk?.window_years ?? 10}yr
           </p>
+        </div>
+
+        {/* Institutional Strength — Scorecard finance signal */}
+        <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50 col-span-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <GraduationCap className="w-3.5 h-3.5 text-indigo-400" />
+              <p className="text-xs text-zinc-500 font-medium">Institutional Strength</p>
+            </div>
+            {score.institutional_strength?.strength_label && (
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                  score.institutional_strength.strength_label === "strong"
+                    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                    : score.institutional_strength.strength_label === "watch"
+                    ? "text-red-400 bg-red-500/10 border-red-500/20"
+                    : "text-zinc-300 bg-zinc-500/10 border-zinc-500/20"
+                }`}
+              >
+                {score.institutional_strength.strength_label}
+              </span>
+            )}
+          </div>
+
+          {score.institutional_strength ? (
+            <>
+              {score.institutional_strength.strength_score != null && (
+                <p className="text-lg font-bold tabular-nums">
+                  {score.institutional_strength.strength_score.toFixed(0)}
+                  <span className="text-xs text-zinc-500 font-normal">/100</span>
+                </p>
+              )}
+              <div className="grid grid-cols-3 gap-2 mt-2 text-xs">
+                <div>
+                  <p className="text-zinc-600">Retention</p>
+                  <p className="text-zinc-300 font-semibold tabular-nums">
+                    {score.institutional_strength.retention_rate != null
+                      ? `${(score.institutional_strength.retention_rate * 100).toFixed(0)}%`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-zinc-600">Endow/Stu</p>
+                  <p className="text-zinc-300 font-semibold tabular-nums">
+                    {score.institutional_strength.endowment_per_student
+                      ? score.institutional_strength.endowment_per_student >= 1000
+                        ? `$${(score.institutional_strength.endowment_per_student / 1000).toFixed(0)}k`
+                        : `$${score.institutional_strength.endowment_per_student}`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-zinc-600">Admit</p>
+                  <p className="text-zinc-300 font-semibold tabular-nums">
+                    {score.institutional_strength.admission_rate != null
+                      ? `${(score.institutional_strength.admission_rate * 100).toFixed(0)}%`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              {score.institutional_strength.ownership_label && (
+                <p className="text-xs text-zinc-600 mt-2 capitalize">
+                  {score.institutional_strength.ownership_label}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-lg font-bold text-zinc-600">N/A</p>
+          )}
         </div>
       </div>
 

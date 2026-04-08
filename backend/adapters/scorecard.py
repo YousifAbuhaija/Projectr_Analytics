@@ -59,13 +59,16 @@ async def search_university(name: str) -> UniversityMeta | None:
         resp = await client.get(SCORECARD_BASE, params=params)
         if resp.status_code == 429:
             print("[Scorecard] Rate limit exceeded, using mock fallback")
-            if "Virginia" in name:
+            name_lower = name.lower()
+            if "virginia tech" in name_lower or "polytechnic" in name_lower or name_lower == "vtech":
                 return UniversityMeta(unitid=233921, name="Virginia Polytechnic Institute and State University", city="Blacksburg", state="VA", lat=37.229012, lon=-80.423675, enrollment=30923)
-            elif "Texas" in name:
+            elif "university of virginia" in name_lower or name_lower == "uva":
+                return UniversityMeta(unitid=234076, name="University of Virginia", city="Charlottesville", state="VA", lat=38.0336, lon=-78.5080, enrollment=26082)
+            elif "texas" in name_lower:
                 return UniversityMeta(unitid=228778, name="The University of Texas at Austin", city="Austin", state="TX", lat=30.282825, lon=-97.738273, enrollment=42855)
-            elif "Arizona" in name:
+            elif "arizona" in name_lower:
                 return UniversityMeta(unitid=104151, name="Arizona State University Campus Immersion", city="Tempe", state="AZ", lat=33.421921, lon=-111.939763, enrollment=64922)
-            elif "Villanova" in name:
+            elif "villanova" in name_lower:
                 return UniversityMeta(unitid=216597, name="Villanova University", city="Villanova", state="PA", lat=40.036463, lon=-75.340502, enrollment=6938)
             
             from fastapi import HTTPException
@@ -80,7 +83,17 @@ async def search_university(name: str) -> UniversityMeta | None:
     if not results:
         return None
 
-    top = max(results, key=lambda r: r.get("latest.student.size") or 0)
+    # First try: exact match (case-insensitive)
+    name_lower = name.lower()
+    exact = next((r for r in results if r.get("school.name", "").lower() == name_lower), None)
+    if exact:
+        return _parse_result(exact)
+
+    # Second try: matches where the target name contains the query (e.g. "Virginia Tech" inside "Virginia Polytechnic Institute")
+    contained = [r for r in results if name_lower in r.get("school.name", "").lower()]
+    pool = contained if contained else results
+
+    top = max(pool, key=lambda r: r.get("latest.student.size") or 0)
     return _parse_result(top)
 
 

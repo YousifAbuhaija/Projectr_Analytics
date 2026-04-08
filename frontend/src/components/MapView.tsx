@@ -27,7 +27,14 @@ const SCORE_COLOR = (score: number) =>
 
 const NATIONAL_CENTER = { lat: 39.5, lng: -98.35 };
 const NATIONAL_ZOOM = 4;
-const CAMPUS_ZOOM = 12;
+const CAMPUS_ZOOM = 14;
+
+const US_BOUNDS = {
+  north: 65.0,
+  south: 10.0,
+  west: -150.0,
+  east: -45.0,
+};
 
 // ── Logo Pin ──────────────────────────────────────────────────────────────────
 // Circle with school favicon, pointer triangle at bottom, colored ring.
@@ -147,7 +154,7 @@ function CameraController({
       const t = setTimeout(() => map.setZoom(CAMPUS_ZOOM), 250);
       return () => clearTimeout(t);
     }
-  }, [map, selectedName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [map, selectedName, scoreCache]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 }
@@ -221,6 +228,11 @@ export function MapView({ selectedName, scoreCache, dynamicUnis, activeHexData, 
         mapId="CampusLensMap"
         defaultCenter={NATIONAL_CENTER}
         defaultZoom={NATIONAL_ZOOM}
+        minZoom={NATIONAL_ZOOM}
+        restriction={{
+          latLngBounds: US_BOUNDS,
+          strictBounds: false,
+        }}
         disableDefaultUI={true}
         zoomControl={true}
         gestureHandling="greedy"

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { streamScore } from "./lib/api";
 import { fetchHexGrid } from "./lib/hexApi";
-import { readCache, writeEntry } from "./lib/storage";
+import { readCache, writeEntry, readSplitCache, writeSplitEntry, purgeSplitCache } from "./lib/storage";
 import { UNIVERSITIES } from "./lib/universityList";
 import type { UniversitySuggestion } from "./lib/universityList";
 import { SearchBar } from "./components/ui/SearchBar";
@@ -14,7 +14,7 @@ import type { HousingPressureScore } from "./lib/api";
 import type { HexGeoJSON } from "./lib/hexApi";
 
 const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 const SCORE_CACHE_KEY = `campuslens_scores_${CACHE_VERSION}`;
 const HEX_CACHE_KEY = `campuslens_hex_${CACHE_VERSION}`;
 const DYNAMIC_UNIS_CACHE_KEY = `campuslens_dynamic_unis_${CACHE_VERSION}`;
@@ -161,7 +161,7 @@ function App() {
     () => readCache<HousingPressureScore>(SCORE_CACHE_KEY)
   );
   const [hexCache, setHexCache] = useState<Record<string, HexGeoJSON>>(
-    () => readCache<HexGeoJSON>(HEX_CACHE_KEY)
+    () => readSplitCache<HexGeoJSON>(HEX_CACHE_KEY)
   );
 
   // Dynamic universities discovered via search — appear as map pins and suggestions
@@ -200,6 +200,17 @@ function App() {
       localStorage.removeItem("campuslens_scores_v5");
       localStorage.removeItem("campuslens_hex_v5");
       localStorage.removeItem("campuslens_dynamic_unis_v5");
+      localStorage.removeItem("campuslens_scores_v6");
+      localStorage.removeItem("campuslens_hex_v6");
+      localStorage.removeItem("campuslens_dynamic_unis_v6");
+      localStorage.removeItem("campuslens_scores_v7");
+      localStorage.removeItem("campuslens_hex_v7");
+      localStorage.removeItem("campuslens_dynamic_unis_v7");
+      localStorage.removeItem("campuslens_scores_v8");
+      localStorage.removeItem("campuslens_hex_v8");
+      localStorage.removeItem("campuslens_dynamic_unis_v8");
+      // v9+ uses per-entry split keys for hex; purge any that exist for old versions
+      purgeSplitCache("campuslens_hex_v8");
       localStorage.setItem(CACHE_SCHEMA_KEY, CACHE_VERSION);
     } catch {
       // Ignore storage failures in private mode.
@@ -214,6 +225,7 @@ function App() {
   const activeScore = selectedName ? (scoreCache[selectedName] ?? null) : null;
   const activeHexData = (() => {
     if (!selectedName || mapZoom < 11) return null;
+    if (!scoreCache[selectedName]) return null; // require paired cached score
     const debugHex = isVirginiaTechName(selectedName);
     const preferredKeys = [
       hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES),
@@ -278,7 +290,7 @@ function App() {
       applyPartial(partial);
       if (persistToStorage) {
         for (const n of names) {
-          writeEntry(HEX_CACHE_KEY, hexCacheKey(n, resolution, debugHex, radiusMiles), partial);
+          writeSplitEntry(HEX_CACHE_KEY, hexCacheKey(n, resolution, debugHex, radiusMiles), partial);
         }
       }
     } catch {
@@ -288,15 +300,18 @@ function App() {
     }
   };
 
-  // Hex loading: ensure selected campus has a fetched grid.
+  // Hex loading: ensure selected campus has a fetched grid, but only when the
+  // score is already cached — keeps hex and score coupled so neither is stored
+  // without the other.
   useEffect(() => {
     if (!selectedName) return;
+    if (!scoreCache[selectedName]) return;
     const debugHex = isVirginiaTechName(selectedName);
     const key = hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES);
     if (!hexCache[key]) {
       void loadHexStream(selectedName, [selectedName], HEX_RESOLUTION, MAX_HEX_RADIUS_MILES, debugHex, false);
     }
-  }, [selectedName, hexCache]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedName, hexCache, scoreCache]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Report queue processing ─────────────────────────────────────────────────
 

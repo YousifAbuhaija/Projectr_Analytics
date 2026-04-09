@@ -10,6 +10,7 @@ The API shape intentionally mirrors other adapters:
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 import math
 
@@ -139,14 +140,16 @@ async def fetch_national_constraint_points(
     bbox = _bbox_from_radius(lat, lon, radius_miles)
     points: list[tuple[float, float, str]] = []
 
-    for url, kind in (
-        (_USFWS_WETLANDS_QUERY, "wetland"),
-        (_FEMA_NFHL_QUERY, "floodplain"),
-    ):
-        try:
-            points.extend(await _fetch_arcgis_overlay_points(url, bbox, kind))
-        except Exception as exc:
-            print(f"[NationalConstraints] {kind} overlay failed: {exc}")
+    results = await asyncio.gather(
+        _fetch_arcgis_overlay_points(_USFWS_WETLANDS_QUERY, bbox, "wetland"),
+        _fetch_arcgis_overlay_points(_FEMA_NFHL_QUERY, bbox, "floodplain"),
+        return_exceptions=True,
+    )
+    for kind, result in zip(["wetland", "floodplain"], results):
+        if isinstance(result, Exception):
+            print(f"[NationalConstraints] {kind} overlay failed: {result}")
+        else:
+            points.extend(result)
 
     _CACHE[cache_key] = points
     return points

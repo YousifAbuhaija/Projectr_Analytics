@@ -9,6 +9,7 @@ Endpoints:
   GET  /hex/stream/{university_name} — NDJSON streamed H3 hex chunks
 """
 
+import hashlib
 import json
 import math
 import os
@@ -73,6 +74,39 @@ def _write_hex_debug_snapshot(university_name: str, payload: dict) -> str | None
         return None
 
 
+def _hex_disk_cache_path(cache_key: tuple) -> Path:
+    slug = hashlib.md5(str(cache_key).encode()).hexdigest()[:16]
+    return Path(config.cache_dir) / "hex" / f"{cache_key[0]}_{slug}.json"
+
+
+def _load_hex_disk_cache(cache_key: tuple) -> dict | None:
+    p = _hex_disk_cache_path(cache_key)
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text())
+        saved_at = datetime.fromisoformat(data.get("_cached_at", ""))
+        if (datetime.now(timezone.utc) - saved_at).days > 7:
+            return None  # stale OSM data, recompute
+        return data
+    except Exception:
+        return None
+
+
+def _write_hex_disk_cache(cache_key: tuple, geojson: dict) -> None:
+    p = _hex_disk_cache_path(cache_key)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        out = {
+            **geojson,
+            "_cached_at": datetime.now(timezone.utc).isoformat(),
+            "_cache_key": list(cache_key),
+        }
+        p.write_text(json.dumps(out), encoding="utf-8")
+    except Exception as exc:
+        print(f"[hex-disk-cache] write failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load pre-scored universities from cache on startup."""
@@ -83,6 +117,21 @@ async def lifespan(app: FastAPI):
             score = HousingPressureScore.model_validate(entry)
             _prescored[score.university.unitid] = score
         print(f"Loaded {len(_prescored)} pre-scored universities from cache.")
+    hex_cache_dir = Path(config.cache_dir) / "hex"
+    if hex_cache_dir.exists():
+        count = 0
+        for f in hex_cache_dir.glob("*.json"):
+            try:
+                entry_data = json.loads(f.read_text())
+                raw_key = entry_data.get("_cache_key")
+                if raw_key:
+                    hex_cache_key = tuple(raw_key)
+                    _hex_response_cache[hex_cache_key] = entry_data
+                    count += 1
+            except Exception:
+                pass
+        if count:
+            print(f"Warmed {count} hex grids from disk cache.")
     yield
 
 
@@ -451,6 +500,10 @@ async def get_hex_grid(
     )
     if cache_key in _hex_response_cache:
         return _hex_response_cache[cache_key]
+    disk_hit = _load_hex_disk_cache(cache_key)
+    if disk_hit:
+        _hex_response_cache[cache_key] = disk_hit
+        return disk_hit
 
     # ── Generate hex grid ──
     hex_indices = generate_campus_hex_grid(
@@ -531,6 +584,7 @@ async def get_hex_grid(
             geojson["metadata"]["debug_log_path"] = debug_path
             print(f"[/hex] Debug snapshot written: {debug_path}")
     _hex_response_cache[cache_key] = geojson
+    _write_hex_disk_cache(cache_key, geojson)
     return geojson
 
 

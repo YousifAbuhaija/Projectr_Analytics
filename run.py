@@ -68,6 +68,12 @@ def free_port(port, name):
 free_port(BACKEND_PORT, "backend")
 free_port(FRONTEND_PORT, "frontend")
 
+precompute = subprocess.Popen(
+    [sys.executable, "-m", "backend.scripts.precompute_hex"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+)
+
 backend = subprocess.Popen(["uvicorn", "backend.main:app", "--reload"])
 frontend = subprocess.Popen(["npm", "run", "dev"], cwd="frontend")
 
@@ -75,6 +81,7 @@ try:
     backend.wait()
     frontend.wait()
 except KeyboardInterrupt:
+    precompute.terminate()
     backend.terminate()
     frontend.terminate()
     sys.exit(0)

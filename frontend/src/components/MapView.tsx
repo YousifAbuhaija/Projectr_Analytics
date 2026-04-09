@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Map,
   AdvancedMarker,
@@ -348,6 +348,20 @@ function RecenterButton({
   );
 }
 
+// ── ZoomTracker ───────────────────────────────────────────────────────────────
+
+function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const listener = map.addListener("zoom_changed", () => {
+      onZoomChange(map.getZoom() ?? 9);
+    });
+    return () => listener.remove();
+  }, [map, onZoomChange]);
+  return null;
+}
+
 // ── MapView ───────────────────────────────────────────────────────────────────
 
 interface MapViewProps {
@@ -358,6 +372,8 @@ interface MapViewProps {
   activeHexData: HexGeoJSON | null;
   onPinClick: (name: string, coords?: { lat: number; lng: number }) => void;
   onZoomOut?: () => void;
+  onZoomChange?: (zoom: number) => void;
+  onHoverPrefetch?: (name: string) => void;
 }
 
 export function MapView({
@@ -368,10 +384,13 @@ export function MapView({
   activeHexData,
   onPinClick,
   onZoomOut,
+  onZoomChange,
+  onHoverPrefetch,
 }: MapViewProps) {
   const allUniversities = mergeUniversities(dynamicUnis);
   const [hoveredName, setHoveredName] = useState<string | null>(null);
   const [forceNational, setForceNational] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (selectedName) setForceNational(false);
@@ -408,6 +427,7 @@ export function MapView({
           onReturnToCampus={() => setForceNational(false)}
           onForceNational={() => setForceNational(true)}
         />
+        {onZoomChange && <ZoomTracker onZoomChange={onZoomChange} />}
         {activeHexData && <HexChoropleth hexData={activeHexData} />}
 
         {allUniversities.map((uni, i) => {
@@ -431,8 +451,17 @@ export function MapView({
                 setForceNational(false);
                 onPinClick(uni.name, { lat: uni.lat, lng: uni.lon });
               }}
-              onMouseEnter={() => setHoveredName(uni.name)}
-              onMouseLeave={() => setHoveredName(null)}
+              onMouseEnter={() => {
+                setHoveredName(uni.name);
+                hoverTimerRef.current = setTimeout(() => onHoverPrefetch?.(uni.name), 300);
+              }}
+              onMouseLeave={() => {
+                setHoveredName(null);
+                if (hoverTimerRef.current) {
+                  clearTimeout(hoverTimerRef.current);
+                  hoverTimerRef.current = null;
+                }
+              }}
               title={uni.name}
               zIndex={isSelected ? 20 : computed ? 6 : isHovered ? 10 : 1}
             >

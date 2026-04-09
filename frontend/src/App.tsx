@@ -158,6 +158,7 @@ function App() {
   );
 
   const [loading, setLoading] = useState(false);
+  const [mapZoom, setMapZoom] = useState<number>(14);
   const [loadingName, setLoadingName] = useState<string | null>(null);
   const [agentLogs, setAgentLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +200,7 @@ function App() {
   // Derived — what the side panel shows right now
   const activeScore = selectedName ? (scoreCache[selectedName] ?? null) : null;
   const activeHexData = (() => {
-    if (!selectedName) return null;
+    if (!selectedName || mapZoom < 11) return null;
     const debugHex = isVirginiaTechName(selectedName);
     const preferredKeys = [
       hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, DEFAULT_HEX_RADIUS_MILES),
@@ -225,7 +226,8 @@ function App() {
     resolution: number,
     radiusMiles: number,
     debugHex: boolean,
-    clearTargetBeforeLoad = false
+    clearTargetBeforeLoad = false,
+    persistToStorage = true
   ) => {
     const names = Array.from(new Set(cacheNames.filter(Boolean)));
     if (names.length === 0) return;
@@ -271,8 +273,10 @@ function App() {
         debugHex
       );
       applyPartial(partial);
-      for (const n of names) {
-        writeEntry(HEX_CACHE_KEY, hexCacheKey(n, resolution, debugHex, radiusMiles), partial);
+      if (persistToStorage) {
+        for (const n of names) {
+          writeEntry(HEX_CACHE_KEY, hexCacheKey(n, resolution, debugHex, radiusMiles), partial);
+        }
       }
     } catch {
       // keep side panel usable even if hex stream fails
@@ -281,16 +285,14 @@ function App() {
     }
   };
 
-  const runReport = async (name: string) => {
+  const runReport = async (name: string, forceRefreshHex = false) => {
     setLoading(true);
     setLoadingName(name);
     setError(null);
     setAgentLogs([]);
-    // Force fresh progressive paint for each recompute instead of showing a
-    // stale fully-loaded cache entry first.
-    setHexCache((prev) => {
-      return clearHexEntriesForName(prev, name);
-    });
+    if (forceRefreshHex) {
+      setHexCache((prev) => clearHexEntriesForName(prev, name));
+    }
 
     try {
       for await (const event of streamScore(name)) {
@@ -336,6 +338,7 @@ function App() {
             HEX_RESOLUTION,
             DEFAULT_HEX_RADIUS_MILES,
             debugHex,
+            forceRefreshHex,
             true
           );
 
@@ -486,7 +489,15 @@ function App() {
   /** "Recompute" button in ScorePanel. */
   const handleRecompute = async () => {
     if (!selectedName) return;
-    await runReport(selectedName);
+    await runReport(selectedName, true);
+  };
+
+  const handleHoverPrefetch = (name: string) => {
+    const debugHex = isVirginiaTechName(name);
+    const key = hexCacheKey(name, HEX_RESOLUTION, debugHex, DEFAULT_HEX_RADIUS_MILES);
+    if (!hexCache[key]) {
+      void loadHexStream(name, [name], HEX_RESOLUTION, DEFAULT_HEX_RADIUS_MILES, debugHex, false, false);
+    }
   };
 
   // Toggle compare mode
@@ -552,6 +563,8 @@ function App() {
             activeHexData={activeHexData}
             onPinClick={handleSelectUniversity}
             onZoomOut={handleZoomOutMap}
+            onZoomChange={setMapZoom}
+            onHoverPrefetch={handleHoverPrefetch}
           />
         </APIProvider>
 

@@ -1,7 +1,15 @@
 import { MapPin } from "lucide-react";
 import { UNIVERSITIES } from "../../lib/universityList";
+import type { UniversitySuggestion } from "../../lib/universityList";
+import LocationButton from "../LocationButton";
 
-export function EmptyState() {
+export function EmptyState({
+  onSelectNearest,
+  extraUniversities,
+}: {
+  onSelectNearest?: (name: string, coords: { lat: number; lng: number }) => void;
+  extraUniversities?: UniversitySuggestion[];
+}) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500">
       <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center mb-6">
@@ -11,6 +19,10 @@ export function EmptyState() {
       <p className="text-sm leading-relaxed">
         Click any pin on the map or search for a university to run a live housing market analysis.
       </p>
+      <LocationButton
+        onSelectNearest={onSelectNearest}
+        extraUniversities={extraUniversities}
+      />
       <p className="text-xs text-zinc-600 mt-4">{UNIVERSITIES.length} universities available</p>
     </div>
   );

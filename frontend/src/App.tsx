@@ -12,7 +12,6 @@ import { ComparePanel } from "./components/panels/ComparePanel";
 import { CompareSetupPanel } from "./components/panels/CompareSetupPanel";
 import type { HousingPressureScore } from "./lib/api";
 import type { HexGeoJSON } from "./lib/hexApi";
-import LocationButton from "./components/LocationButton";
 const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 const CACHE_VERSION = "v8";
 const SCORE_CACHE_KEY = `campuslens_scores_${CACHE_VERSION}`;
@@ -555,12 +554,7 @@ function App() {
         onToggleCompare={handleToggleCompare}
         compareGuide={compareGuide}
       />
-      <LocationButton onLocation={(coords) => {
-      setSelectedCoords(coords);
-      setSelectedName(null);
-      }}
-      />
-      <main className="flex mt-[73px] h-[calc(100vh-73px)]">
+      <main className="flex flex-1 min-h-0">
         <APIProvider apiKey={MAPS_API_KEY}>
           <MapView
             selectedName={selectedName}
@@ -603,6 +597,8 @@ function App() {
             agentLogs={agentLogs}
             onRecompute={handleRecompute}
             onGenerateReport={handleGenerateReport}
+            onSelectNearest={handleSelectUniversity}
+            extraUniversities={Object.values(dynamicUnis)}
           />
         )}
       </main>

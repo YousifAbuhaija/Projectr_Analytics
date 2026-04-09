@@ -3,6 +3,7 @@ import { AgentLogPanel } from "./panels/AgentLogPanel";
 import { PreviewPanel } from "./panels/PreviewPanel";
 import { ScorePanel } from "./panels/ScorePanel";
 import type { HousingPressureScore } from "../lib/api";
+import type { UniversitySuggestion } from "../lib/universityList";
 
 interface LogEntry {
   message: string;
@@ -17,6 +18,8 @@ interface SidePanelProps {
   agentLogs: LogEntry[];
   onRecompute: () => void;
   onGenerateReport: (name: string) => void;
+  onSelectNearest?: (name: string, coords: { lat: number; lng: number }) => void;
+  extraUniversities?: UniversitySuggestion[];
 }
 
 export function SidePanel({
@@ -27,6 +30,8 @@ export function SidePanel({
   agentLogs,
   onRecompute,
   onGenerateReport,
+  onSelectNearest,
+  extraUniversities,
 }: SidePanelProps) {
   const showEmpty = !loading && !error && !selectedName;
   const showLog = loading;
@@ -39,7 +44,10 @@ export function SidePanel({
 
       {/* Empty — nothing selected */}
       <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${showEmpty ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-        <EmptyState />
+        <EmptyState
+          onSelectNearest={onSelectNearest}
+          extraUniversities={extraUniversities}
+        />
       </div>
 
       {/* Agent log — computation in progress */}

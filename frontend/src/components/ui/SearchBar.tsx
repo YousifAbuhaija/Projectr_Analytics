@@ -127,7 +127,7 @@ export function SearchBar({
   };
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800">
+    <header className="shrink-0 z-10 flex items-center justify-between px-6 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800">
       {/* Logo */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">

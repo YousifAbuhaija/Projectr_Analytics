@@ -11,6 +11,30 @@ function scoreToColor(score: number): string {
   return "#ef4444";
 }
 
+// One-sentence plain-English verdict for the InfoWindow.
+function hexVerdict(hex: HexFeatureProperties, status: NormalizedStatus): string {
+  if (status === "Hard non-buildable") {
+    return "Land constraints prevent development — water, wetland, or preserved open space.";
+  }
+  if (status === "On-campus constrained") {
+    return "Campus-controlled land. University approval required for any off-campus development nearby.";
+  }
+  if (status === "Already developed (infill/redevelopment only)") {
+    return hex.pressure_score >= 55
+      ? "High-demand infill zone — redevelopment or value-add opportunity."
+      : "Existing structures present. Moderate demand; infill or value-add play.";
+  }
+  // Potentially buildable
+  const s = hex.pressure_score;
+  const t = hex.transit_label;
+  if (s >= 70 && t === "Transit Hub") return "Prime site — strong demand pressure and transit access. Leading development target.";
+  if (s >= 70) return "Strong demand near campus with limited supply. High-priority development site.";
+  if (s >= 55 && t !== "Isolated") return "Emerging opportunity with solid transit connectivity. Good mid-tier target.";
+  if (s >= 55) return "Moderate demand pressure. Verify site-level buildability before committing.";
+  if (s >= 40) return "Below-average demand signal. May suit smaller-scale or value-add projects.";
+  return "Low demand in this zone. Elevated market-entry risk.";
+}
+
 // "high"/"medium"/"low" come from the backend hex labels — we relabel them
 // in opportunity language without changing the underlying keys.
 const OPPORTUNITY_LABEL: Record<string, string> = {
@@ -39,7 +63,7 @@ function normalizeDevelopmentStatus(hex: HexFeatureProperties): NormalizedStatus
 
 function hexFillColor(hex: HexFeatureProperties): string {
   const status = normalizeDevelopmentStatus(hex);
-  if (status === "Hard non-buildable") return "#0ea5e9";
+  if (status === "Hard non-buildable") return "#64748b";
   if (status === "On-campus constrained") return "#6b7280";
   if (status === "Already developed (infill/redevelopment only)") return "#a855f7";
   return scoreToColor(hex.pressure_score);
@@ -59,13 +83,6 @@ function transitBadgeStyle(label: HexFeatureProperties["transit_label"]): {
   }
 }
 
-function formatPct(value: number | undefined): string {
-  return `${Math.round((value ?? 0) * 100)}%`;
-}
-
-function readableReasonCode(code: string): string {
-  return code.replace(/_/g, " ");
-}
 
 export function HexChoropleth({
   hexData,
@@ -84,23 +101,7 @@ export function HexChoropleth({
   const rawScore = selectedHex
     ? (selectedHex.raw_pressure_score ?? selectedHex.pressure_score)
     : 0;
-  const campusCount = selectedHex?.campus_feature_count ?? 0;
-  const dormCount = selectedHex?.dormitory_count ?? 0;
-  const offCampusHousingCount = selectedHex?.off_campus_housing_count ?? 0;
-  const nonBuildableCount = selectedHex?.non_buildable_marker_count ?? 0;
-  const waterCount = selectedHex?.water_marker_count ?? 0;
-  const golfCount = selectedHex?.golf_marker_count ?? 0;
-  const forestCount = selectedHex?.forest_marker_count ?? 0;
-  const fieldCount = selectedHex?.field_marker_count ?? 0;
-  const developmentCount = selectedHex?.development_marker_count ?? 0;
-  const campusSharePct = Math.round((selectedHex?.campus_share ?? 0) * 100);
-  const buildabilityScore = selectedHex?.buildability_score ?? 100;
   const developmentStatus = normalizedStatus ?? "Potentially buildable";
-  const reasonCodes = selectedHex?.classification_reason_codes ?? [];
-  const coverage = selectedHex?.coverage_pct;
-  const debugTrace = selectedHex?.debug_trace;
-  const confidence = selectedHex?.classification_confidence ?? "low";
-  const dominantLandUse = selectedHex?.dominant_land_use ?? "unknown";
 
   return (
     <>
@@ -126,15 +127,18 @@ export function HexChoropleth({
           onCloseClick={() => setSelectedHex(null)}
           headerDisabled={true}
         >
-          <div className="p-2 min-w-[220px] font-sans">
-            <div className="flex items-center justify-between mb-2">
+          <div className="p-2 min-w-[230px] max-w-[270px] font-sans">
+            {/* Header row: score chip + close */}
+            <div className="flex items-center justify-between mb-2.5">
               <div className="flex items-center gap-1.5">
                 <div
-                  className="w-3 h-3 rounded-sm"
+                  className="w-3 h-3 rounded-sm flex-shrink-0"
                   style={{ background: hexFillColor(selectedHex) }}
                 />
                 <span className="text-sm font-bold text-zinc-900">
-                  {selectedHex.pressure_score.toFixed(1)} / 100
+                  {nonBuildable || constrained
+                    ? developmentStatus
+                    : `${selectedHex.pressure_score.toFixed(0)} / 100`}
                 </span>
               </div>
               <button
@@ -145,138 +149,70 @@ export function HexChoropleth({
                 ✕
               </button>
             </div>
-            <div className="space-y-1 text-xs text-zinc-600">
-              {(constrained || nonBuildable || developed) && (
-                <p>
-                  <span className="font-medium text-zinc-800">Raw demand:</span>{" "}
-                  {rawScore.toFixed(1)} / 100
-                </p>
+
+            {/* Opportunity label (buildable hexes only) */}
+            {!nonBuildable && !constrained && (
+              <p
+                className="text-xs font-semibold mb-2"
+                style={{ color: hexFillColor(selectedHex) }}
+              >
+                {developed
+                  ? "Infill / Redevelopment"
+                  : (OPPORTUNITY_LABEL[selectedHex.label] ?? selectedHex.label)}
+              </p>
+            )}
+
+            {/* Verdict sentence */}
+            <p className="text-xs text-zinc-600 leading-snug mb-2.5 border-b border-zinc-100 pb-2.5">
+              {hexVerdict(selectedHex, normalizedStatus!)}
+            </p>
+
+            {/* Key stats */}
+            <div className="space-y-1.5 text-xs text-zinc-600">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Distance</span>
+                <span className="font-medium text-zinc-800">
+                  {selectedHex.distance_to_campus_miles.toFixed(2)} mi from campus
+                </span>
+              </div>
+
+              {(constrained || nonBuildable || developed) && rawScore > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Underlying demand</span>
+                  <span className="font-medium text-zinc-800">{rawScore.toFixed(0)} / 100</span>
+                </div>
               )}
-              <p>
-                <span className="font-medium text-zinc-800">Distance:</span>{" "}
-                {selectedHex.distance_to_campus_miles.toFixed(2)} mi from campus
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Permit density:</span>{" "}
-                {selectedHex.permit_density.toFixed(2)} / km²
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Unit density:</span>{" "}
-                {selectedHex.unit_density.toFixed(1)} / km²
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Bus stops:</span>{" "}
-                {selectedHex.bus_stop_count}
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Campus markers:</span>{" "}
-                {campusCount} ({dormCount} dorm)
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Off-campus housing markers:</span>{" "}
-                {offCampusHousingCount}
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Existing development markers:</span>{" "}
-                {developmentCount}
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Non-buildable markers:</span>{" "}
-                {nonBuildableCount} ({waterCount} water)
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Land constraints:</span>{" "}
-                {golfCount} golf, {forestCount} forest, {fieldCount} fields
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Buildability:</span>{" "}
-                {buildabilityScore.toFixed(1)} / 100
-              </p>
-              {constrained && (
-                <p>
-                  <span className="font-medium text-zinc-800">Campus share:</span>{" "}
-                  {campusSharePct}%
-                </p>
-              )}
-              {(() => {
-                const style = transitBadgeStyle(selectedHex.transit_label);
-                return (
-                  <span
-                    className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
-                    style={{ background: style.bg, color: style.text }}
-                  >
-                    {selectedHex.transit_label}
-                  </span>
-                );
-              })()}
-              {coverage && (
-                <>
-                  <p>
-                    <span className="font-medium text-zinc-800">Coverage:</span>{" "}
-                    water {formatPct(coverage.water)}, wetland {formatPct(coverage.wetland)},
-                    campus {formatPct(coverage.campus)}
-                  </p>
-                  <p>
-                    <span className="font-medium text-zinc-800">Built:</span>{" "}
-                    residential {formatPct(coverage.residential_built)},
-                    commercial {formatPct(coverage.commercial_built)},
-                    parking/infra {formatPct(coverage.parking_infrastructure)}
-                  </p>
-                  <p>
-                    <span className="font-medium text-zinc-800">Open recreation:</span>{" "}
-                    {formatPct(coverage.open_recreation)}
-                  </p>
-                </>
-              )}
-              <p>
-                <span className="font-medium text-zinc-800">Dominant land use:</span>{" "}
-                {dominantLandUse.replace(/_/g, " ")}
-              </p>
-              <p>
-                <span className="font-medium text-zinc-800">Confidence:</span>{" "}
-                {confidence}
-              </p>
-              {reasonCodes.length > 0 && (
-                <p>
-                  <span className="font-medium text-zinc-800">Reasons:</span>{" "}
-                  {reasonCodes.map(readableReasonCode).join(", ")}
-                </p>
-              )}
-              {debugTrace?.decision_flags && (
-                <p>
-                  <span className="font-medium text-zinc-800">Decision flags:</span>{" "}
-                  hard={String(Boolean(debugTrace.decision_flags["hard_non_buildable"]))},{" "}
-                  campus={String(Boolean(debugTrace.decision_flags["campus_constrained"]))},{" "}
-                  developed={String(Boolean(debugTrace.decision_flags["already_developed"]))}
-                </p>
-              )}
-              {debugTrace?.sampling && (
-                <p>
-                  <span className="font-medium text-zinc-800">Sampling:</span>{" "}
-                  {debugTrace.sampling["sample_count"] ?? 0} points, radius{" "}
-                  {Number(debugTrace.sampling["coverage_radius_km"] ?? 0).toFixed(3)} km
-                </p>
-              )}
-              {debugTrace?.pressure_components && (
-                <p>
-                  <span className="font-medium text-zinc-800">Pressure math:</span>{" "}
-                  raw {Number(debugTrace.pressure_components["raw_pressure_score"] ?? 0).toFixed(1)} → cap{" "}
-                  {Number(debugTrace.pressure_components["pressure_cap"] ?? 0).toFixed(1)} → final{" "}
-                  {Number(debugTrace.pressure_components["final_pressure_score"] ?? 0).toFixed(1)}
-                </p>
-              )}
-              {debugTrace?.buildability_components && (
-                <p>
-                  <span className="font-medium text-zinc-800">Buildability math:</span>{" "}
-                  non-build {Number(debugTrace.buildability_components["weighted_non_buildable"] ?? 0).toFixed(2)}, built{" "}
-                  {Number(debugTrace.buildability_components["development_pressure"] ?? 0).toFixed(2)}
-                </p>
-              )}
-              <p className="font-medium pt-1" style={{ color: hexFillColor(selectedHex) }}>
-                {developmentStatus === "Potentially buildable"
-                  ? (OPPORTUNITY_LABEL[selectedHex.label] ?? selectedHex.label)
-                  : developmentStatus}
-              </p>
+
+              <div className="flex justify-between">
+                <span className="text-zinc-500">New construction nearby</span>
+                <span className="font-medium text-zinc-800">
+                  {selectedHex.permit_density.toFixed(2)} permits / km²
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Transit access</span>
+                <span>
+                  {(() => {
+                    const style = transitBadgeStyle(selectedHex.transit_label);
+                    return (
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+                        style={{ background: style.bg, color: style.text }}
+                      >
+                        {selectedHex.transit_label} · {selectedHex.bus_stop_count} stop{selectedHex.bus_stop_count !== 1 ? "s" : ""}
+                      </span>
+                    );
+                  })()}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Existing housing density</span>
+                <span className="font-medium text-zinc-800">
+                  {selectedHex.unit_density.toFixed(0)} units / km²
+                </span>
+              </div>
             </div>
           </div>
         </InfoWindow>

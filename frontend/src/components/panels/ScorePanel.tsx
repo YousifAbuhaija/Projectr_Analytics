@@ -69,6 +69,21 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
 
   const totalPermits = score.permit_history.reduce((s, p) => s + p.permits, 0);
 
+  // Supply pipeline risk: permits (5yr) as % of current enrollment.
+  // Research thresholds: <5% = low risk, 5–8% = moderate, >8% = high risk.
+  const pipelinePct =
+    latestEnrollment && latestEnrollment > 0 && totalPermits > 0
+      ? (totalPermits / latestEnrollment) * 100
+      : null;
+  const pipelineRiskLabel =
+    pipelinePct == null
+      ? null
+      : pipelinePct < 5
+      ? { label: "Low supply risk", color: "text-emerald-400" }
+      : pipelinePct < 8
+      ? { label: "Moderate supply risk", color: "text-amber-400" }
+      : { label: "High supply risk", color: "text-red-400" };
+
   return (
     <div className="p-6 space-y-5">
       {/* Header */}
@@ -183,6 +198,28 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
             {totalPermits > 0 ? totalPermits.toLocaleString() : "N/A"}
           </p>
           <p className="text-xs text-zinc-600 mt-0.5">residential units (5yr)</p>
+        </div>
+
+        <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Building2 className="w-3.5 h-3.5 text-amber-400" />
+            <p className="text-xs text-zinc-500 font-medium">Supply Pipeline</p>
+          </div>
+          {pipelinePct != null ? (
+            <>
+              <p className={`text-lg font-bold tabular-nums ${pipelineRiskLabel?.color ?? ""}`}>
+                {pipelinePct.toFixed(1)}%
+              </p>
+              <p className={`text-xs mt-0.5 ${pipelineRiskLabel?.color ?? "text-zinc-600"}`}>
+                {pipelineRiskLabel?.label}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-bold text-zinc-600">N/A</p>
+              <p className="text-xs text-zinc-600 mt-0.5">permits / enrollment</p>
+            </>
+          )}
         </div>
 
         <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">

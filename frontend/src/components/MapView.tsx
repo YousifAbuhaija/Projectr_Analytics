@@ -544,7 +544,7 @@ export function MapView({
               ["Saturated", "#ef4444"],
               ["Already Developed", "#a855f7"],
               ["On-campus constrained", "#6b7280"],
-              ["Hard non-buildable", "#0ea5e9"],
+              ["Hard non-buildable", "#64748b"],
             ].map(([label, color]) => (
               <div key={label} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />

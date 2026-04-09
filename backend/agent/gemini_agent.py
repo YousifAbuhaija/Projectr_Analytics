@@ -17,7 +17,7 @@ import json
 from typing import AsyncGenerator
 
 from backend.config import config
-from backend.models.schemas import HousingPressureScore, ScoreRequest
+from backend.models.schemas import HousingPressureScore, ScoreRequest, ChatMessage
 
 # ── System prompt for Gemini market summaries ──
 _SUMMARY_SYSTEM_PROMPT = """You are a student housing market analyst writing investment briefs for real estate developers.
@@ -107,6 +107,49 @@ async def generate_gemini_summary(score: HousingPressureScore) -> str:
     except Exception as exc:
         print(f"[Gemini] Summary generation failed: {exc}")
         return ""
+
+
+_CHAT_SYSTEM_PROMPT = """You are a student housing market analyst and an assistant built into the CampusLens app.
+Your job is to answer the user's questions about housing markets, development opportunities, or app features.
+Keep your answers brief, conversational, and direct. Use markdown formatting sparingly.
+You are talking to a real estate developer or analyst.
+If the user currently has a university selected in the app, it will be injected into your system memory. 
+You should reference it naturally if the user asks about "this school" or "this market".
+"""
+
+async def answer_chat_query(messages: list[ChatMessage], uni_name: str | None, active_score: HousingPressureScore | None) -> str:
+    if not config.gemini_api_key:
+        return "I'm sorry, my real AI capabilities aren't configured yet (missing Gemini API key)."
+
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        return "The google-genai package is not installed on the server."
+
+    client = genai.Client(api_key=config.gemini_api_key)
+
+    system_instruction = _CHAT_SYSTEM_PROMPT
+    if uni_name and active_score:
+        system_instruction += f"\n\n[SYSTEM INJECTION] The user is currently viewing the market for: {uni_name}. Its Housing Pressure Score is {active_score.score:.1f}/100. This is just for your context in case they implicitly refer to it."
+
+    try:
+        contents = []
+        for msg in messages:
+            contents.append(types.Content(role=msg.role, parts=[types.Part.from_text(text=msg.content)]))
+
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.4,
+            ),
+        )
+        return response.text.strip()
+    except Exception as exc:
+        print(f"[Gemini] Chat exception: {exc}")
+        return "I hit a snag processing that. Could you try asking again?"
 
 
 # ── SSE event helpers ──

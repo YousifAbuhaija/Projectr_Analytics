@@ -11,6 +11,7 @@ import { SidePanel } from "./components/SidePanel";
 import { ComparePanel } from "./components/panels/ComparePanel";
 import { CompareSetupPanel } from "./components/panels/CompareSetupPanel";
 import { RankingView } from "./components/RankingView";
+import { ChatbotWidget } from "./components/ui/ChatbotWidget";
 import type { HousingPressureScore, UniversityListItem } from "./lib/api";
 import type { HexGeoJSON } from "./lib/hexApi";
 const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
@@ -644,6 +645,11 @@ function App() {
           </>
         )}
       </main>
+
+      <ChatbotWidget 
+        selectedName={selectedName} 
+        activeScore={activeScore} 
+      />
     </div>
   );
 }

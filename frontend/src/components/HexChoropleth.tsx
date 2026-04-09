@@ -287,6 +287,60 @@ export function HexChoropleth({
                   </span>
                 </div>
               )}
+
+              {/* Land parcels section */}
+              {(selectedHex.vacant_parcel_count ?? 0) > 0 && selectedHex.land_parcels && (
+                <div className="pt-1.5 mt-1 border-t border-zinc-100">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-zinc-500">Available land</span>
+                    <span
+                      className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+                      style={{ background: "#fef9c3", color: "#854d0e" }}
+                    >
+                      {selectedHex.vacant_parcel_count} parcel{selectedHex.vacant_parcel_count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {selectedHex.land_parcels.slice(0, 3).map((parcel, i) => (
+                      <div key={i} className="bg-zinc-50 rounded p-1.5 text-[10px] text-zinc-700">
+                        <div className="font-medium text-zinc-900 truncate">
+                          {parcel.address || "Address not available"}
+                        </div>
+                        <div className="flex justify-between mt-0.5">
+                          <span>
+                            {parcel.lot_size_acres > 0
+                              ? `${parcel.lot_size_acres.toFixed(2)} ac`
+                              : parcel.land_use}
+                          </span>
+                          <span className="font-medium">
+                            {parcel.land_value > 0
+                              ? `$${(parcel.land_value / 1000).toFixed(0)}k land value`
+                              : parcel.market_value > 0
+                              ? `$${(parcel.market_value / 1000).toFixed(0)}k assessed`
+                              : "Value unknown"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between mt-0.5 text-zinc-500">
+                          <span className="truncate max-w-[120px]">{parcel.owner_name}</span>
+                          {parcel.is_absentee && (
+                            <span
+                              className="px-1 py-0 rounded text-[9px] font-semibold uppercase"
+                              style={{ background: "#fce7f3", color: "#9d174d" }}
+                            >
+                              Absentee owner
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {(selectedHex.vacant_parcel_count ?? 0) > 3 && (
+                      <div className="text-[10px] text-zinc-400 text-center">
+                        +{(selectedHex.vacant_parcel_count ?? 0) - 3} more parcel{(selectedHex.vacant_parcel_count ?? 0) - 3 !== 1 ? "s" : ""}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </InfoWindow>

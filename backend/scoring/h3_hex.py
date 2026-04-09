@@ -99,6 +99,8 @@ class HexFeature:
     zoning_code: str | None      # short zone code from city GIS (e.g. "RM-48")
     zoning_label: str | None     # full zone name (e.g. "RM-48 Medium Density...")
     zoning_pbsh_signal: str | None  # positive|neutral|restrictive|constrained|negative
+    vacant_parcel_count: int     # ATTOM vacant / land-dominant parcels inside hex
+    land_parcels: list[dict]     # lightweight parcel dicts for InfoWindow display
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -473,6 +475,7 @@ def compute_hex_features(
     parking_markers: list[tuple[float, float, str]] | None = None,
     national_constraint_points: list[tuple[float, float, str]] | None = None,
     zoning_polygons: list[dict] | None = None,
+    land_parcels: list[dict] | None = None,
     resolution: int = 9,
 ) -> list[HexFeature]:
     """Compute pressure features for each hex in the grid.
@@ -664,6 +667,17 @@ def compute_hex_features(
     )
 
     zoning_index = _prepare_zoning_index(zoning_polygons)
+
+    # ── Land parcel index: bucket by H3 cell ─────────────────────────────────
+    # Each parcel is assigned to the hex whose center is nearest its lat/lng.
+    import h3
+    _land_by_hex: dict[str, list[dict]] = {}
+    for parcel in (land_parcels or []):
+        try:
+            cell = h3.latlng_to_cell(parcel["lat"], parcel["lng"], resolution)
+        except Exception:
+            continue
+        _land_by_hex.setdefault(cell, []).append(parcel)
 
     features: list[HexFeature] = []
     for hex_id in hex_indices:
@@ -893,6 +907,31 @@ def compute_hex_features(
             else "low"
         )
 
+        # ── Land parcel signal ──────────────────────────────────────────────
+        # Vacant / land-dominant parcels in this hex signal transactable land.
+        # Boost pressure score by up to +12 pts (diminishing returns past 3 parcels).
+        # Only boosts "Potentially buildable" hexes — no point boosting constrained land.
+        hex_parcels = _land_by_hex.get(hex_id, [])
+        vacant_count = len(hex_parcels)
+        if vacant_count > 0 and development_status == "Potentially buildable":
+            absentee_bonus = sum(1 for p in hex_parcels if p.get("is_absentee")) * 1.5
+            raw_boost = min(12.0, 4.0 * vacant_count + absentee_bonus)
+            hex_pressure = min(100.0, hex_pressure + raw_boost)
+        # Slim parcel dicts for InfoWindow (drop heavy fields)
+        slim_parcels = [
+            {
+                "address": p.get("address", ""),
+                "lot_size_acres": p.get("lot_size_acres", 0),
+                "land_value": p.get("land_value", 0),
+                "market_value": p.get("market_value", 0),
+                "owner_name": p.get("owner_name", ""),
+                "is_absentee": p.get("is_absentee", False),
+                "land_use": p.get("land_use", ""),
+                "parcel_type": p.get("parcel_type", ""),
+            }
+            for p in hex_parcels
+        ]
+
         # ── Boundary in GeoJSON [lng, lat] format ──
         boundary = [[float(lng), float(lat)] for lat, lng in raw_boundary]
         boundary.append(boundary[0])  # close ring
@@ -1001,6 +1040,8 @@ def compute_hex_features(
             zoning_code=zoning_code,
             zoning_label=zoning_label,
             zoning_pbsh_signal=zoning_pbsh_signal,
+            vacant_parcel_count=vacant_count,
+            land_parcels=slim_parcels,
         ))
 
     features.sort(key=lambda f: f.distance_km)
@@ -1063,6 +1104,8 @@ def to_geojson(features: list[HexFeature], include_debug: bool = False) -> dict:
                     "zoning_code": feat.zoning_code,
                     "zoning_label": feat.zoning_label,
                     "zoning_pbsh_signal": feat.zoning_pbsh_signal,
+                    "vacant_parcel_count": feat.vacant_parcel_count,
+                    "land_parcels": feat.land_parcels,
                 },
             }
             for feat in features

@@ -6,7 +6,7 @@ import {
   ControlPosition,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { Crosshair, Globe } from "lucide-react";
+import { Crosshair, Globe, Plus, Minus } from "lucide-react";
 import { HexChoropleth } from "./HexChoropleth";
 import { UNIVERSITIES } from "../lib/universityList";
 import type { UniversitySuggestion } from "../lib/universityList";
@@ -26,16 +26,15 @@ function mergeUniversities(
 const SCORE_COLOR = (score: number) =>
   score >= 70 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
 
-// Default startup extent: national overview, slightly more zoomed-in.
-const NATIONAL_CENTER = { lat: 38.2, lng: -97.6 };
-const NATIONAL_ZOOM = 4.5;
+const NATIONAL_CENTER = { lat: 38.7, lng: -96.5 };
+const NATIONAL_ZOOM = 5;
 const CAMPUS_ZOOM = 14;
 
 const US_BOUNDS = {
-  north: 65.0,
-  south: 10.0,
-  west: -150.0,
-  east: -45.0,
+  north: 52.0,
+  south: 23.0,
+  west: -128.0,
+  east: -65.0,
 };
 
 function isValidLatLng(lat: number, lng: number): boolean {
@@ -322,24 +321,26 @@ function RecenterButton({
     onZoomOut?.();
   };
 
+  const btnClass =
+    "w-10 h-10 bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 rounded-xl " +
+    "flex items-center justify-center text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm";
+
   return (
     <MapControl position={ControlPosition.RIGHT_BOTTOM}>
       <div className="mb-3 mr-3 flex flex-col gap-2">
-        <button
-          onClick={handleZoomOut}
-          title="Zoom out to national view"
-          className="w-10 h-10 bg-zinc-900/90 border border-zinc-700
-                     hover:border-blue-500 rounded-xl flex items-center justify-center
-                     text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm"
-        >
+        <button className={btnClass} onClick={() => map?.setZoom((map.getZoom() ?? 10) + 1)} title="Zoom in">
+          <Plus className="w-4 h-4" />
+        </button>
+        <button className={btnClass} onClick={() => map?.setZoom((map.getZoom() ?? 10) - 1)} title="Zoom out">
+          <Minus className="w-4 h-4" />
+        </button>
+        <button className={btnClass} onClick={handleZoomOut} title="Zoom out to national view">
           <Globe className="w-4 h-4" />
         </button>
         <button
+          className={btnClass}
           onClick={handleClick}
           title={selectedName ? "Re-center on campus" : "Re-center national view"}
-          className="w-10 h-10 bg-zinc-900/90 border border-zinc-700
-                     hover:border-blue-500 rounded-xl flex items-center justify-center
-                     text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm"
         >
           <Crosshair className="w-4 h-4" />
         </button>
@@ -408,7 +409,6 @@ export function MapView({
           strictBounds: false,
         }}
         disableDefaultUI={true}
-        zoomControl={true}
         gestureHandling="greedy"
       >
         <CameraController

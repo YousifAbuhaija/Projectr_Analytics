@@ -116,16 +116,26 @@ export function HexChoropleth({ hexData }: { hexData: HexGeoJSON }) {
         <InfoWindow
           position={{ lat: selectedHex.center_lat, lng: selectedHex.center_lng }}
           onCloseClick={() => setSelectedHex(null)}
+          headerDisabled={true}
         >
           <div className="p-2 min-w-[220px] font-sans">
-            <div className="flex items-center gap-1.5 mb-2">
-              <div
-                className="w-3 h-3 rounded-sm"
-                style={{ background: hexFillColor(selectedHex) }}
-              />
-              <span className="text-sm font-bold text-zinc-900">
-                {selectedHex.pressure_score.toFixed(1)} / 100
-              </span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <div
+                  className="w-3 h-3 rounded-sm"
+                  style={{ background: hexFillColor(selectedHex) }}
+                />
+                <span className="text-sm font-bold text-zinc-900">
+                  {selectedHex.pressure_score.toFixed(1)} / 100
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedHex(null)}
+                className="ml-4 text-zinc-400 hover:text-zinc-700 text-base leading-none"
+                aria-label="Close"
+              >
+                ✕
+              </button>
             </div>
             <div className="space-y-1 text-xs text-zinc-600">
               {(constrained || nonBuildable || developed) && (

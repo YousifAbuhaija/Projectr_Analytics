@@ -553,7 +553,7 @@ function App() {
         onToggleCompare={handleToggleCompare}
         compareGuide={compareGuide}
       />
-      <main className="flex-1 flex mt-[73px]">
+      <main className="flex mt-[73px] h-[calc(100vh-73px)]">
         <APIProvider apiKey={MAPS_API_KEY}>
           <MapView
             selectedName={selectedName}

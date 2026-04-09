@@ -45,19 +45,27 @@ function ChartSection({
 export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore; onRecompute?: () => void }) {
   const label = getLabel(score.score);
 
-  const latestEnrollment = score.enrollment_trend.at(-1)?.total_enrollment;
-  const earliestEnrollment = score.enrollment_trend.at(0)?.total_enrollment;
+  const enrollmentFirst = score.enrollment_trend.at(0);
+  const enrollmentLast = score.enrollment_trend.at(-1);
+  const latestEnrollment = enrollmentLast?.total_enrollment;
+  const earliestEnrollment = enrollmentFirst?.total_enrollment;
   const enrollmentChange =
     latestEnrollment && earliestEnrollment
       ? (((latestEnrollment - earliestEnrollment) / earliestEnrollment) * 100).toFixed(1)
       : null;
+  const enrollmentPeriod =
+    enrollmentFirst && enrollmentLast ? `${enrollmentFirst.year}–${enrollmentLast.year}` : null;
 
-  const latestRent = score.rent_history.at(-1)?.median_rent;
-  const earliestRent = score.rent_history.at(0)?.median_rent;
+  const rentFirst = score.rent_history.at(0);
+  const rentLast = score.rent_history.at(-1);
+  const latestRent = rentLast?.median_rent;
+  const earliestRent = rentFirst?.median_rent;
   const rentChange =
     latestRent && earliestRent
       ? (((latestRent - earliestRent) / earliestRent) * 100).toFixed(1)
       : null;
+  const rentPeriod =
+    rentFirst && rentLast ? `${rentFirst.year}–${rentLast.year}` : null;
 
   const totalPermits = score.permit_history.reduce((s, p) => s + p.permits, 0);
 
@@ -141,7 +149,7 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
               }`}
             >
               {parseFloat(enrollmentChange) >= 0 ? "+" : ""}
-              {enrollmentChange}% over period
+              {enrollmentChange}%{enrollmentPeriod ? ` (${enrollmentPeriod})` : ""}
             </p>
           )}
         </div>
@@ -161,7 +169,7 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
               }`}
             >
               {parseFloat(rentChange) >= 0 ? "+" : ""}
-              {rentChange}% over period
+              {rentChange}%{rentPeriod ? ` (${rentPeriod})` : ""}
             </p>
           )}
         </div>

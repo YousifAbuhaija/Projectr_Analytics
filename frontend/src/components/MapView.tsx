@@ -371,6 +371,8 @@ interface MapViewProps {
   scoreCache: Record<string, HousingPressureScore>;
   dynamicUnis: Record<string, UniversitySuggestion>;
   activeHexData: HexGeoJSON | null;
+  hexRadiusMiles: number;
+  onHexRadiusChange: (radius: number) => void;
   onPinClick: (name: string, coords?: { lat: number; lng: number }) => void;
   onZoomOut?: () => void;
   onZoomChange?: (zoom: number) => void;
@@ -383,6 +385,8 @@ export function MapView({
   scoreCache,
   dynamicUnis,
   activeHexData,
+  hexRadiusMiles,
+  onHexRadiusChange,
   onPinClick,
   onZoomOut,
   onZoomChange,
@@ -428,7 +432,9 @@ export function MapView({
           onForceNational={() => setForceNational(true)}
         />
         {onZoomChange && <ZoomTracker onZoomChange={onZoomChange} />}
-        {activeHexData && <HexChoropleth hexData={activeHexData} />}
+        {activeHexData && (
+          <HexChoropleth hexData={activeHexData} maxDistanceMiles={hexRadiusMiles} />
+        )}
 
         {allUniversities.map((uni, i) => {
           const computed = scoreCache[uni.name];
@@ -505,6 +511,28 @@ export function MapView({
           );
         })}
       </Map>
+
+      {/* Radius slider */}
+      {activeHexData && (
+        <div className="absolute top-4 left-4 bg-zinc-950/90 backdrop-blur-sm border border-zinc-800 rounded-xl p-3 shadow-lg z-10">
+          <label className="text-xs text-zinc-400 font-medium block mb-1.5">
+            Radius: <span className="text-white">{hexRadiusMiles.toFixed(1)} mi</span>
+          </label>
+          <input
+            type="range"
+            min={0.5}
+            max={5.0}
+            step={0.1}
+            value={hexRadiusMiles}
+            onChange={(e) => onHexRadiusChange(parseFloat(e.target.value))}
+            className="w-36 h-1.5 accent-blue-500 cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] text-zinc-600 mt-0.5">
+            <span>0.5 mi</span>
+            <span>5.0 mi</span>
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="absolute bottom-6 left-6 bg-zinc-950/80 backdrop-blur-sm border border-zinc-800 rounded-xl p-3 text-xs pointer-events-none">

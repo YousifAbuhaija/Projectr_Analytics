@@ -67,7 +67,13 @@ function readableReasonCode(code: string): string {
   return code.replace(/_/g, " ");
 }
 
-export function HexChoropleth({ hexData }: { hexData: HexGeoJSON }) {
+export function HexChoropleth({
+  hexData,
+  maxDistanceMiles,
+}: {
+  hexData: HexGeoJSON;
+  maxDistanceMiles?: number;
+}) {
   const [selectedHex, setSelectedHex] = useState<HexFeatureProperties | null>(null);
   const normalizedStatus = selectedHex
     ? normalizeDevelopmentStatus(selectedHex)
@@ -98,7 +104,9 @@ export function HexChoropleth({ hexData }: { hexData: HexGeoJSON }) {
 
   return (
     <>
-      {hexData.features.map((f) => (
+      {hexData.features
+        .filter((f) => maxDistanceMiles == null || f.properties.distance_to_campus_miles <= maxDistanceMiles)
+        .map((f) => (
         <Polygon
           key={f.properties.h3_index}
           // GeoJSON coordinates are [lng, lat] — swap to {lat, lng} for Maps API

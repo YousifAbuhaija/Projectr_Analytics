@@ -19,7 +19,8 @@ const SCORE_CACHE_KEY = `campuslens_scores_${CACHE_VERSION}`;
 const HEX_CACHE_KEY = `campuslens_hex_${CACHE_VERSION}`;
 const DYNAMIC_UNIS_CACHE_KEY = `campuslens_dynamic_unis_${CACHE_VERSION}`;
 const CACHE_SCHEMA_KEY = "campuslens_cache_schema_version";
-const DEFAULT_HEX_RADIUS_MILES = 1.5;
+const MAX_HEX_RADIUS_MILES = 5.0;
+const DEFAULT_HEX_RADIUS_MILES = 2.5;
 const HEX_RESOLUTION = 9;
 
 interface LogEntry {
@@ -162,6 +163,7 @@ function App() {
   const [loadingName, setLoadingName] = useState<string | null>(null);
   const [agentLogs, setAgentLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [hexRadiusMiles, setHexRadiusMiles] = useState(DEFAULT_HEX_RADIUS_MILES);
 
   // One-time cache schema migration: clears old localhost cache buckets.
   useEffect(() => {
@@ -203,7 +205,7 @@ function App() {
     if (!selectedName || mapZoom < 11) return null;
     const debugHex = isVirginiaTechName(selectedName);
     const preferredKeys = [
-      hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, DEFAULT_HEX_RADIUS_MILES),
+      hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES),
       selectedName,
     ];
     for (const key of preferredKeys) {
@@ -336,7 +338,7 @@ function App() {
             actualName,
             [name, actualName],
             HEX_RESOLUTION,
-            DEFAULT_HEX_RADIUS_MILES,
+            MAX_HEX_RADIUS_MILES,
             debugHex,
             forceRefreshHex,
             true
@@ -394,13 +396,13 @@ function App() {
   useEffect(() => {
     if (!selectedName || loading) return;
     const debugHex = isVirginiaTechName(selectedName);
-    const key = hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, DEFAULT_HEX_RADIUS_MILES);
+    const key = hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES);
     if (!hexCache[key]) {
       void loadHexStream(
         selectedName,
         [selectedName],
         HEX_RESOLUTION,
-        DEFAULT_HEX_RADIUS_MILES,
+        MAX_HEX_RADIUS_MILES,
         debugHex,
         false
       );
@@ -494,9 +496,9 @@ function App() {
 
   const handleHoverPrefetch = (name: string) => {
     const debugHex = isVirginiaTechName(name);
-    const key = hexCacheKey(name, HEX_RESOLUTION, debugHex, DEFAULT_HEX_RADIUS_MILES);
+    const key = hexCacheKey(name, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES);
     if (!hexCache[key]) {
-      void loadHexStream(name, [name], HEX_RESOLUTION, DEFAULT_HEX_RADIUS_MILES, debugHex, false, false);
+      void loadHexStream(name, [name], HEX_RESOLUTION, MAX_HEX_RADIUS_MILES, debugHex, false, false);
     }
   };
 
@@ -566,6 +568,8 @@ function App() {
             scoreCache={scoreCache}
             dynamicUnis={dynamicUnis}
             activeHexData={activeHexData}
+            hexRadiusMiles={hexRadiusMiles}
+            onHexRadiusChange={setHexRadiusMiles}
             onPinClick={handleSelectUniversity}
             onZoomOut={handleZoomOutMap}
             onZoomChange={setMapZoom}

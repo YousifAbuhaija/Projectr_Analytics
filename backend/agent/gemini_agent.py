@@ -154,7 +154,9 @@ async def score_with_streaming(
         rent,
         fema_disasters,
         osm_buildings,
+        master_plans,
     )
+    from backend.models.schemas import MasterPlanData
     from backend.scoring.pressure import compute_pressure_score
 
     try:
@@ -300,6 +302,16 @@ async def score_with_streaming(
                 f"({existing_housing.saturation_label} saturation)"
             )
 
+        # ── Step 6f: Master plan lookup ──
+        master_plan: MasterPlanData | None = None
+        mp_raw = master_plans.get_planned_beds(uni.name)
+        if mp_raw:
+            master_plan = MasterPlanData(**mp_raw)
+            yield _log_event(
+                f"Master plan: {master_plan.planned_beds:,} beds planned "
+                f"(weighted {master_plan.planned_beds_weighted:,}, horizon {master_plan.horizon_year})"
+            )
+
         # ── Step 7: Compute score ──
         yield _log_event("Computing Housing Pressure Score...")
         result = compute_pressure_score(
@@ -313,6 +325,7 @@ async def score_with_streaming(
             disaster_risk=disaster_risk,
             institutional_strength=institutional_strength,
             existing_housing=existing_housing,
+            master_plan=master_plan,
         )
         yield _log_event(
             f"Score: {result.score}/100 — "

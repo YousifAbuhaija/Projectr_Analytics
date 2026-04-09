@@ -30,6 +30,7 @@ from backend.models.schemas import (
     HousingPressureScore,
     InstitutionalStrength,
     MarketDemographics,
+    MasterPlanData,
     PermitData,
     RentData,
     ScoreComponents,
@@ -211,6 +212,7 @@ def compute_pressure_score(
     disaster_risk: DisasterRisk | None = None,
     institutional_strength: InstitutionalStrength | None = None,
     existing_housing: ExistingHousingStock | None = None,
+    master_plan: MasterPlanData | None = None,
     gemini_summary: str | None = None,
 ) -> HousingPressureScore:
     """Compute the full Housing Pressure Score for a university market."""
@@ -293,6 +295,22 @@ def compute_pressure_score(
         elif existing_housing.saturation_label == "low":
             multiplier *= 1.03
 
+    # 6. Planned on-campus bed pipeline
+    # A large planned supply of on-campus beds will absorb students who would
+    # otherwise need off-campus housing — direct negative for PBSH demand.
+    # We use time-discounted beds relative to enrollment as the signal:
+    #   ≥10% of enrollment in new on-campus beds → material supply relief (-12%)
+    #   ≥5%                                      → moderate relief (-6%)
+    #   ≥2%                                      → minor signal (-3%)
+    if master_plan and master_plan.planned_beds_weighted and university.enrollment:
+        planned_ratio = master_plan.planned_beds_weighted / university.enrollment
+        if planned_ratio >= 0.10:
+            multiplier *= 0.88
+        elif planned_ratio >= 0.05:
+            multiplier *= 0.94
+        elif planned_ratio >= 0.02:
+            multiplier *= 0.97
+
     final_score = max(0.0, min(100.0, round(raw_score * multiplier, 1)))
 
     components = ScoreComponents(
@@ -314,6 +332,7 @@ def compute_pressure_score(
         disaster_risk=disaster_risk,
         institutional_strength=institutional_strength,
         existing_housing=existing_housing,
+        master_plan=master_plan,
         gemini_summary=gemini_summary,
         scored_at=datetime.now(timezone.utc).isoformat(),
     )

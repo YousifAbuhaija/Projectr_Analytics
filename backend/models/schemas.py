@@ -114,6 +114,23 @@ class ExistingHousingStock(BaseModel):
     saturation_label: str = "low"  # "low" | "moderate" | "high"
 
 
+class MasterPlanData(BaseModel):
+    """Planned on-campus residential bed pipeline from university master plans.
+
+    planned_beds_weighted applies a time-discount based on horizon_year so
+    beds opening in 2 years are weighted more heavily than beds in 2030.
+    """
+
+    planned_beds: int
+    planned_beds_weighted: int
+    horizon_year: int | None = None
+    p3_deal: bool = False
+    p3_partner: str | None = None
+    source: str = ""
+    confidence: str = "medium"  # "high" | "medium" | "low"
+    notes: str | None = None
+
+
 class InstitutionalStrength(BaseModel):
     """University financial / institutional health from College Scorecard.
 
@@ -150,6 +167,7 @@ class HousingPressureScore(BaseModel):
     disaster_risk: DisasterRisk | None = None
     institutional_strength: InstitutionalStrength | None = None
     existing_housing: ExistingHousingStock | None = None
+    master_plan: MasterPlanData | None = None
     gemini_summary: str | None = None
     scored_at: str = ""
 

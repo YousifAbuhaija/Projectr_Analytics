@@ -1,9 +1,9 @@
-import { TrendingUp, Building2, DollarSign, MapPin, RefreshCw, BedDouble, Home, CloudRain, GraduationCap, Warehouse } from "lucide-react";
+import { TrendingUp, Building2, DollarSign, MapPin, RefreshCw, BedDouble, Home, CloudRain, GraduationCap, Warehouse, Construction } from "lucide-react";
 import { ScoreGauge } from "../ui/ScoreGauge";
 import { EnrollmentChart } from "../charts/EnrollmentChart";
 import { RentChart } from "../charts/RentChart";
 import { PermitChart } from "../charts/PermitChart";
-import type { HousingPressureScore } from "../../lib/api";
+import type { HousingPressureScore, MasterPlanData } from "../../lib/api";
 
 // "high" pressure score = good developer opportunity (undersupplied market).
 // We keep the internal label keys (high/medium/low) so cached scores still
@@ -256,6 +256,29 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
             <p className="text-lg font-bold text-zinc-600">N/A</p>
           )}
           <p className="text-xs text-zinc-600 mt-0.5">on-campus dorm ratio</p>
+          {score.master_plan && (
+            <div className="mt-2 pt-2 border-t border-zinc-800">
+              <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide mb-0.5">
+                Planned pipeline
+              </p>
+              <p className="text-xs text-zinc-300 font-medium tabular-nums">
+                +{score.master_plan.planned_beds.toLocaleString()} beds
+                {score.master_plan.horizon_year ? ` (by ${score.master_plan.horizon_year})` : ""}
+              </p>
+              {score.master_plan.p3_deal && score.master_plan.p3_partner && (
+                <p className="text-[10px] text-zinc-500 mt-0.5">P3 · {score.master_plan.p3_partner}</p>
+              )}
+              <p className={`text-[10px] mt-0.5 ${
+                score.master_plan.confidence === "high"
+                  ? "text-zinc-500"
+                  : score.master_plan.confidence === "medium"
+                  ? "text-zinc-600"
+                  : "text-zinc-700"
+              }`}>
+                {score.master_plan.confidence} confidence
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">

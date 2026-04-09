@@ -1,0 +1,242 @@
+[
+  {
+    "university_name": "Texas A&M University",
+    "planned_beds": 3668,
+    "horizon_year": 2026,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "Multi-Housing News, 2024 — cited in CampusLens research doc",
+    "confidence": "high",
+    "notes": "Under active construction as of 2024; 5.1% of enrollment"
+  },
+  {
+    "university_name": "University of California Los Angeles",
+    "planned_beds": 5000,
+    "horizon_year": 2028,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UC Regents housing plan, 2021",
+    "confidence": "medium",
+    "notes": "UC system-wide mandate to address housing crisis; UCLA share of multi-campus plan"
+  },
+  {
+    "university_name": "University of California Berkeley",
+    "planned_beds": 3200,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UC Berkeley Housing Master Plan — People's Park + Anchor House + Chou Hall",
+    "confidence": "medium",
+    "notes": "People's Park ~1,100 beds; Anchor House ~1,100 beds; additional infill projects"
+  },
+  {
+    "university_name": "University of Texas at Austin",
+    "planned_beds": 1800,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UT Austin Campus Master Plan 2022",
+    "confidence": "medium",
+    "notes": "Multiple new residence halls under plan; Creekside opened 2023 counted separately"
+  },
+  {
+    "university_name": "Ohio State University",
+    "planned_beds": 2400,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "OSU West Campus Housing Renewal",
+    "confidence": "medium",
+    "notes": "Replacement and expansion of aging West Campus towers; multi-phase project"
+  },
+  {
+    "university_name": "Arizona State University",
+    "planned_beds": 1800,
+    "horizon_year": 2027,
+    "p3_deal": true,
+    "p3_partner": "American Campus Communities",
+    "source": "ASU P3 housing partnerships",
+    "confidence": "medium",
+    "notes": "Multiple P3 agreements across Tempe and downtown Phoenix campuses"
+  },
+  {
+    "university_name": "University of Florida",
+    "planned_beds": 1500,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UF Housing Master Plan",
+    "confidence": "medium",
+    "notes": "New residence halls on South campus; ongoing expansion program"
+  },
+  {
+    "university_name": "Purdue University",
+    "planned_beds": 1100,
+    "horizon_year": 2026,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "Purdue University Housing Development Plan",
+    "confidence": "medium",
+    "notes": "New residence hall construction as part of campus expansion; enrollment growth focus"
+  },
+  {
+    "university_name": "University of Michigan",
+    "planned_beds": 1000,
+    "horizon_year": 2028,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "U-M Campus Master Plan",
+    "confidence": "medium",
+    "notes": "Northwood V graduate housing + additional undergraduate projects"
+  },
+  {
+    "university_name": "University of Washington",
+    "planned_beds": 1200,
+    "horizon_year": 2028,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UW 2018 Campus Master Plan update",
+    "confidence": "medium",
+    "notes": "Graduate + undergraduate housing expansion on main Seattle campus"
+  },
+  {
+    "university_name": "Pennsylvania State University",
+    "planned_beds": 900,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "Penn State University Park Housing Plan",
+    "confidence": "medium",
+    "notes": "East campus housing expansion; renovation of older residence halls"
+  },
+  {
+    "university_name": "Penn State University",
+    "planned_beds": 900,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "Penn State University Park Housing Plan",
+    "confidence": "medium",
+    "notes": "East campus housing expansion; renovation of older residence halls"
+  },
+  {
+    "university_name": "University of Colorado Boulder",
+    "planned_beds": 1500,
+    "horizon_year": 2028,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "CU Boulder Campus Master Plan 2021",
+    "confidence": "medium",
+    "notes": "East Campus and Williams Village expansion; responding to Boulder housing cost pressure"
+  },
+  {
+    "university_name": "Virginia Tech",
+    "planned_beds": 800,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "VT Campus Master Plan",
+    "confidence": "low",
+    "notes": "Planned new residence hall near academic core; Blacksburg housing demand remains tight"
+  },
+  {
+    "university_name": "Indiana University Bloomington",
+    "planned_beds": 900,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "IU Housing Development Plan",
+    "confidence": "low",
+    "notes": "New residence hall construction; IU has been expanding on-campus capacity"
+  },
+  {
+    "university_name": "Florida State University",
+    "planned_beds": 700,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "FSU Campus Master Plan",
+    "confidence": "low",
+    "notes": "Ongoing housing expansion; Tallahassee market relatively deep"
+  },
+  {
+    "university_name": "University of Maryland",
+    "planned_beds": 1000,
+    "horizon_year": 2028,
+    "p3_deal": true,
+    "p3_partner": "Greystar",
+    "source": "UMD Housing Master Plan",
+    "confidence": "medium",
+    "notes": "North Campus housing expansion; P3 partnership for new development"
+  },
+  {
+    "university_name": "North Carolina State University",
+    "planned_beds": 800,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "NC State University Housing Plan",
+    "confidence": "low",
+    "notes": "Central Campus housing renewal; Triangle market has significant private supply"
+  },
+  {
+    "university_name": "University of Minnesota",
+    "planned_beds": 900,
+    "horizon_year": 2028,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "U of M 2030 Campus Development Plan",
+    "confidence": "low",
+    "notes": "New residence halls on Minneapolis campus; East Bank focus"
+  },
+  {
+    "university_name": "University of Illinois Urbana-Champaign",
+    "planned_beds": 1200,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UIUC Integrated Facilities and Space Plan",
+    "confidence": "medium",
+    "notes": "New undergraduate housing; significant international student enrollment driving demand"
+  },
+  {
+    "university_name": "Rutgers University",
+    "planned_beds": 700,
+    "horizon_year": 2028,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "Rutgers Master Plan",
+    "confidence": "low",
+    "notes": "New Brunswick campus housing expansion"
+  },
+  {
+    "university_name": "University of Tennessee Knoxville",
+    "planned_beds": 600,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "UT Knoxville Campus Master Plan",
+    "confidence": "low",
+    "notes": "New residence halls planned; Knoxville private market is active"
+  },
+  {
+    "university_name": "Auburn University",
+    "planned_beds": 500,
+    "horizon_year": 2027,
+    "p3_deal": false,
+    "p3_partner": null,
+    "source": "Auburn University Master Plan",
+    "confidence": "low",
+    "notes": "Limited on-campus expansion; Auburn is heavily off-campus driven"
+  },
+  {
+    "university_name": "Louisiana State University",
+    "planned_beds": 600,
+    "horizon_year": 2027,
+    "p3_deal": true,
+    "p3_partner": "Provident Resources Group",
+    "source": "LSU P3 housing plan",
+    "confidence": "low",
+    "notes": "P3 on-campus residential development; Baton Rouge private market expanding"
+  }
+]

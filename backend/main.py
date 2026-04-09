@@ -40,7 +40,9 @@ from backend.adapters import (
     osm_transit,
     osm_buildings,
     national_constraints,
+    master_plans,
 )
+from backend.models.schemas import MasterPlanData
 from backend.scoring.pressure import compute_pressure_score
 from backend.scoring.h3_hex import (
     generate_campus_hex_grid,
@@ -265,6 +267,12 @@ async def score_university(req: ScoreRequest):
     # ── Step 6e: Fetch existing residential building footprint ──
     existing_housing = await osm_buildings.fetch_buildings(uni.lat, uni.lon, 1.5)
 
+    # ── Step 6f: Look up campus master plan (planned on-campus beds) ──
+    master_plan: MasterPlanData | None = None
+    mp_raw = master_plans.get_planned_beds(uni.name)
+    if mp_raw:
+        master_plan = MasterPlanData(**mp_raw)
+
     # ── Step 7: Compute score ──
     result = compute_pressure_score(
         university=uni,
@@ -277,6 +285,7 @@ async def score_university(req: ScoreRequest):
         disaster_risk=disaster_risk,
         institutional_strength=institutional_strength,
         existing_housing=existing_housing,
+        master_plan=master_plan,
     )
 
     # ── Step 8: Gemini summary ──

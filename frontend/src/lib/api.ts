@@ -85,6 +85,17 @@ export interface ScoreComponents {
   rent_pressure: number;
 }
 
+export interface MasterPlanData {
+  planned_beds: number;
+  planned_beds_weighted: number;
+  horizon_year: number | null;
+  p3_deal: boolean;
+  p3_partner: string | null;
+  source: string;
+  confidence: "high" | "medium" | "low";
+  notes: string | null;
+}
+
 export interface HousingPressureScore {
   university: UniversityMeta;
   score: number;
@@ -98,6 +109,7 @@ export interface HousingPressureScore {
   disaster_risk: DisasterRisk | null;
   institutional_strength: InstitutionalStrength | null;
   existing_housing: ExistingHousingStock | null;
+  master_plan: MasterPlanData | null;
   gemini_summary: string | null;
   scored_at: string;
 }

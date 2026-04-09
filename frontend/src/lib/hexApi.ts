@@ -60,6 +60,9 @@ export interface HexFeatureProperties {
   transit_label: "Transit Hub" | "Walkable" | "Isolated";
   center_lat: number;
   center_lng: number;
+  zoning_code?: string | null;
+  zoning_label?: string | null;
+  zoning_pbsh_signal?: "positive" | "neutral" | "restrictive" | "constrained" | "negative" | null;
 }
 
 export interface HexGeoJSON {

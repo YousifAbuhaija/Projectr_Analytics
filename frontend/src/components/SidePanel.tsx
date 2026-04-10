@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { ChevronDown, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, MapPin, Download } from "lucide-react";
+import {
+  ChevronDown,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  MapPin,
+  Download,
+} from "lucide-react";
 import { EmptyState } from "./panels/EmptyState";
 import { PreviewPanel } from "./panels/PreviewPanel";
 import { ScorePanel } from "./panels/ScorePanel";
@@ -15,7 +23,8 @@ import type { LogEntry, ReportJob } from "../App";
 function HexPulseIcon() {
   return (
     <svg
-      width="14" height="14"
+      width="14"
+      height="14"
       viewBox="-8 -8 16 16"
       className="animate-pulse flex-shrink-0"
       style={{ filter: "drop-shadow(0 0 3px rgba(59,130,246,0.6))" }}
@@ -33,12 +42,24 @@ function HexPulseIcon() {
 // Standalone bar — shown when no report bar is open
 function HexLoadingBar({ name }: { name: string }) {
   return (
-    <div className="border-b border-zinc-800 bg-zinc-900/70 backdrop-blur-sm flex-shrink-0">
+    <div
+      className="flex-shrink-0"
+      style={{
+        borderBottom: "1px solid var(--border)",
+        background: "rgba(28,28,28,0.8)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
       <div className="flex items-center gap-2.5 px-4 py-2.5">
         <HexPulseIcon />
-        <p className="text-xs text-zinc-300 flex-1 min-w-0 truncate">
+        <p
+          className="text-xs flex-1 min-w-0 truncate"
+          style={{ color: "var(--text-2)" }}
+        >
           Hex grid loading:{" "}
-          <span className="text-white font-medium">{name}</span>
+          <span className="font-medium" style={{ color: "var(--text)" }}>
+            {name}
+          </span>
         </p>
       </div>
     </div>
@@ -48,11 +69,19 @@ function HexLoadingBar({ name }: { name: string }) {
 // Green done banner — matches report DoneBanner style
 function HexDoneBar({ name }: { name: string }) {
   return (
-    <div className="mx-3 mt-3 flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5 flex-shrink-0">
+    <div
+      className="mx-3 mt-3 flex items-center gap-2.5 rounded-xl px-3 py-2.5 flex-shrink-0"
+      style={{
+        background: "rgba(16,185,129,0.08)",
+        border: "1px solid rgba(16,185,129,0.2)",
+      }}
+    >
       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-emerald-300 truncate">{name}</p>
-        <p className="text-[11px] text-emerald-400/60 leading-none mt-0.5">Hex grid generated</p>
+        <p className="text-[11px] text-emerald-400/60 leading-none mt-0.5">
+          Hex grid generated
+        </p>
       </div>
     </div>
   );
@@ -75,24 +104,41 @@ function QueueStatusBar({
   const recentLogs = activeJob?.logs.slice(-5) ?? [];
 
   return (
-    <div className="border-b border-zinc-800 bg-zinc-900/70 backdrop-blur-sm flex-shrink-0">
+    <div
+      className="flex-shrink-0"
+      style={{
+        borderBottom: "1px solid var(--border)",
+        background: "rgba(28,28,28,0.8)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
       {/* Header row */}
       <button
-        className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-zinc-800/40 transition-colors text-left"
-        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center gap-2.5 px-4 py-2.5 transition-colors text-left"
+        style={{ background: "transparent" }}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.background = "rgba(255,255,255,0.03)")
+        }
+        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        onClick={() => setExpanded((e) => !e)}
       >
         {/* Spinner */}
         <div className="w-3.5 h-3.5 border-2 border-blue-500/30 border-t-blue-400 rounded-full animate-spin flex-shrink-0" />
 
         <div className="flex-1 min-w-0">
           {activeJob && (
-            <p className="text-xs text-zinc-300 truncate">
+            <p className="text-xs truncate" style={{ color: "var(--text-2)" }}>
               Generating:{" "}
-              <span className="text-white font-medium">{activeJob.name}</span>
+              <span className="font-medium" style={{ color: "var(--text)" }}>
+                {activeJob.name}
+              </span>
             </p>
           )}
           {queuedJobs.length > 0 && (
-            <p className="text-[11px] text-zinc-500 leading-none mt-0.5">
+            <p
+              className="text-[11px] leading-none mt-0.5"
+              style={{ color: "var(--text-3)" }}
+            >
               {queuedJobs.length} more queued
             </p>
           )}
@@ -100,16 +146,18 @@ function QueueStatusBar({
             <div className="flex items-center gap-1.5 mt-0.5">
               <HexPulseIcon />
               <p className="text-[11px] text-blue-400/80 truncate">
-                Hex grid: <span className="text-blue-300">{hexLoadingName}</span>
+                Hex grid:{" "}
+                <span className="text-blue-300">{hexLoadingName}</span>
               </p>
             </div>
           )}
         </div>
 
         <ChevronDown
-          className={`w-3.5 h-3.5 text-zinc-500 flex-shrink-0 transition-transform duration-200 ${
+          className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${
             expanded ? "rotate-180" : ""
           }`}
+          style={{ color: 'var(--text-3)' }}
         />
       </button>
 
@@ -117,10 +165,20 @@ function QueueStatusBar({
       {expanded && (
         <div className="px-4 pb-3 space-y-2.5">
           {recentLogs.length > 0 && (
-            <div className="bg-zinc-950/60 rounded-lg px-3 py-2 font-mono text-[10px] space-y-0.5 max-h-[72px] overflow-y-auto">
+            <div
+              className="rounded-lg px-3 py-2 font-mono text-[10px] space-y-0.5 max-h-[72px] overflow-y-auto"
+              style={{ background: "rgba(0,0,0,0.4)" }}
+            >
               {recentLogs.map((log: LogEntry, i: number) => (
-                <div key={i} className="text-zinc-500 truncate leading-relaxed">
-                  <span className="text-zinc-700 mr-1.5">
+                <div
+                  key={i}
+                  className="truncate leading-relaxed"
+                  style={{ color: "var(--text-3)" }}
+                >
+                  <span
+                    className="mr-1.5"
+                    style={{ color: "rgba(255,255,255,0.15)" }}
+                  >
                     {log.ts.toLocaleTimeString("en", {
                       hour12: false,
                       hour: "2-digit",
@@ -136,14 +194,15 @@ function QueueStatusBar({
 
           {queuedJobs.length > 0 && (
             <div className="space-y-1">
-              {queuedJobs.map(job => (
+              {queuedJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="flex items-center gap-2 text-[11px] text-zinc-500 py-0.5"
+                  className="flex items-center gap-2 text-[11px] py-0.5"
+                  style={{ color: 'var(--text-3)' }}
                 >
-                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 flex-shrink-0" />
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--text-3)' }} />
                   <span className="flex-1 truncate">{job.name}</span>
-                  <span className="text-zinc-700 uppercase tracking-wide text-[9px] font-semibold">
+                  <span className="uppercase tracking-wide text-[9px] font-semibold" style={{ color: 'rgba(255,255,255,0.15)' }}>
                     queued
                   </span>
                 </div>
@@ -171,15 +230,28 @@ function DoneBanner({
 }) {
   const displayName = job.resolvedName ?? job.name;
   return (
-    <div className="mx-3 mt-3 flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5 flex-shrink-0">
+    <div
+      className="mx-3 mt-3 flex items-center gap-2.5 rounded-xl px-3 py-2.5 flex-shrink-0"
+      style={{
+        background: "rgba(16,185,129,0.08)",
+        border: "1px solid rgba(16,185,129,0.2)",
+      }}
+    >
       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-emerald-300 truncate">{displayName}</p>
-        <p className="text-[11px] text-emerald-400/60 leading-none mt-0.5">Report ready</p>
+        <p className="text-xs font-medium text-emerald-300 truncate">
+          {displayName}
+        </p>
+        <p className="text-[11px] text-emerald-400/60 leading-none mt-0.5">
+          Report ready
+        </p>
       </div>
       <button
         onClick={() => onView(job)}
-        className="flex items-center gap-1 text-[11px] text-emerald-300 hover:text-white font-medium transition-colors flex-shrink-0"
+        className="flex items-center gap-1 text-[11px] font-medium transition-colors flex-shrink-0"
+        style={{ color: "var(--text-2)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-2)")}
       >
         View <ArrowRight className="w-3 h-3" />
       </button>
@@ -194,7 +266,10 @@ function DoneBanner({
       )}
       <button
         onClick={() => onDismiss(job.id)}
-        className="text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors flex-shrink-0"
+        className="text-[11px] transition-colors flex-shrink-0"
+        style={{ color: 'var(--text-3)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-2)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
       >
         ✕
       </button>
@@ -214,7 +289,13 @@ function ErrorBanner({
   onRetry: (name: string) => void;
 }) {
   return (
-    <div className="mx-3 mt-3 flex items-start gap-2.5 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 flex-shrink-0">
+    <div
+      className="mx-3 mt-3 flex items-start gap-2.5 rounded-xl px-3 py-2.5 flex-shrink-0"
+      style={{
+        background: "rgba(239,68,68,0.08)",
+        border: "1px solid rgba(239,68,68,0.2)",
+      }}
+    >
       <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-red-300 truncate">{job.name}</p>
@@ -225,13 +306,19 @@ function ErrorBanner({
       <div className="flex gap-2 flex-shrink-0">
         <button
           onClick={() => onRetry(job.name)}
-          className="text-[11px] text-red-300 hover:text-white transition-colors underline"
+          className="text-[11px] transition-colors"
+          style={{ color: "rgba(248,113,113,0.8)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(248,113,113,0.8)")}
         >
           Retry
         </button>
         <button
           onClick={() => onDismiss(job.id)}
-          className="text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors"
+          className="text-[11px] transition-colors"
+        style={{ color: 'var(--text-3)' }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-2)')}
+        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-3)')}
         >
           ✕
         </button>
@@ -262,47 +349,59 @@ function LandParcelDetailPanel({
   label: string;
   onDismiss: () => void;
 }) {
-  const absenteeCount = parcels.filter(p => p.is_absentee).length;
-  const landValues = parcels.filter(p => p.land_value > 0).map(p => p.land_value);
-  const avgLandValue = landValues.length > 0
-    ? landValues.reduce((a, b) => a + b, 0) / landValues.length
-    : 0;
+  const absenteeCount = parcels.filter((p) => p.is_absentee).length;
+  const landValues = parcels
+    .filter((p) => p.land_value > 0)
+    .map((p) => p.land_value);
+  const avgLandValue =
+    landValues.length > 0
+      ? landValues.reduce((a, b) => a + b, 0) / landValues.length
+      : 0;
   const totalAcres = parcels.reduce((s, p) => s + (p.lot_size_acres || 0), 0);
 
   return (
-    <div className="absolute inset-0 bg-zinc-950 flex flex-col z-30 overflow-hidden">
+    <div className="absolute inset-0 flex flex-col z-30 overflow-hidden" style={{ background: 'var(--surface)' }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 flex-shrink-0">
+      <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <button
           onClick={onDismiss}
-          className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors text-xs"
+          className="flex items-center gap-1.5 transition-colors text-xs"
+          style={{ color: 'var(--text-2)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-2)')}
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">Available Land Parcels</p>
-          <p className="text-[11px] text-zinc-500">{label}</p>
+          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>
+            Available Land Parcels
+          </p>
+          <p className="text-[11px]" style={{ color: 'var(--text-3)' }}>{label}</p>
         </div>
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-3 divide-x divide-zinc-800 border-b border-zinc-800 flex-shrink-0">
+      <div className="grid grid-cols-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         {[
           ["Lots", parcels.length],
-          ["Avg value", avgLandValue > 0 ? `$${(avgLandValue / 1000).toFixed(0)}k` : "—"],
+          [
+            "Avg value",
+            avgLandValue > 0 ? `$${(avgLandValue / 1000).toFixed(0)}k` : "—",
+          ],
           ["Total acres", totalAcres > 0 ? totalAcres.toFixed(1) : "—"],
         ].map(([k, v]) => (
           <div key={String(k)} className="px-3 py-2 text-center">
-            <p className="text-sm font-bold text-white">{v}</p>
-            <p className="text-[10px] text-zinc-500 mt-0.5">{k}</p>
+            <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{v}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{k}</p>
           </div>
         ))}
       </div>
       {absenteeCount > 0 && (
         <div className="px-4 py-2 bg-pink-950/30 border-b border-pink-900/40 flex-shrink-0">
           <p className="text-[11px] text-pink-300">
-            <span className="font-semibold">{absenteeCount}</span> absentee owner{absenteeCount !== 1 ? "s" : ""} — potential off-market leads
+            <span className="font-semibold">{absenteeCount}</span> absentee
+            owner{absenteeCount !== 1 ? "s" : ""} — potential off-market leads
           </p>
         </div>
       )}
@@ -310,18 +409,18 @@ function LandParcelDetailPanel({
       {/* Parcel list */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         {parcels.map((parcel, i) => {
-          const value = parcel.land_value > 0
-            ? parcel.land_value
-            : parcel.market_value;
+          const value =
+            parcel.land_value > 0 ? parcel.land_value : parcel.market_value;
           return (
             <div
               key={i}
-              className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 hover:border-amber-600/50 transition-colors"
+              className="rounded-xl p-3 transition-colors"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <MapPin className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                  <p className="text-xs font-medium text-white truncate">
+                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
                     {parcel.address || "Address not listed"}
                   </p>
                 </div>
@@ -334,31 +433,39 @@ function LandParcelDetailPanel({
 
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Size</span>
-                  <span className="text-zinc-300">
-                    {parcel.lot_size_acres > 0 ? `${parcel.lot_size_acres.toFixed(2)} ac` : "—"}
+                  <span style={{ color: 'var(--text-3)' }}>Size</span>
+                  <span style={{ color: 'var(--text-2)' }}>
+                    {parcel.lot_size_acres > 0
+                      ? `${parcel.lot_size_acres.toFixed(2)} ac`
+                      : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Value</span>
+                  <span style={{ color: 'var(--text-3)' }}>Value</span>
                   <span className="text-amber-400 font-medium">
                     {value > 0 ? `$${(value / 1000).toFixed(0)}k` : "—"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Owner</span>
-                  <span className="text-zinc-300 truncate max-w-[120px] text-right">{parcel.owner_name || "—"}</span>
+                  <span style={{ color: 'var(--text-3)' }}>Owner</span>
+                  <span className="truncate max-w-[120px] text-right" style={{ color: 'var(--text-2)' }}>
+                    {parcel.owner_name || "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Type</span>
-                  <span className="text-zinc-400 capitalize">
-                    {parcel.parcel_type === "land_dominant" ? "Underutilized" : "Vacant"}
+                  <span style={{ color: 'var(--text-3)' }}>Type</span>
+                  <span className="capitalize" style={{ color: 'var(--text-2)' }}>
+                    {parcel.parcel_type === "land_dominant"
+                      ? "Underutilized"
+                      : "Vacant"}
                   </span>
                 </div>
               </div>
 
               {parcel.land_use && (
-                <p className="text-[10px] text-zinc-600 mt-1.5 truncate">{parcel.land_use}</p>
+                <p className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--text-3)' }}>
+                  {parcel.land_use}
+                </p>
               )}
             </div>
           );
@@ -381,7 +488,10 @@ interface SidePanelProps {
   onGenerateReport: (name: string) => void;
   onDismissJob: (id: string) => void;
   onViewReport: (job: ReportJob) => void;
-  onSelectNearest?: (name: string, coords: { lat: number; lng: number }) => void;
+  onSelectNearest?: (
+    name: string,
+    coords: { lat: number; lng: number },
+  ) => void;
   extraUniversities?: UniversitySuggestion[];
   hexLoadingName?: string | null;
   hexJustLoaded?: string | null;
@@ -422,20 +532,62 @@ export function SidePanel({
   const showScore = !!activeScore;
 
   return (
-    <aside className="w-[440px] border-l border-zinc-800 bg-zinc-950 flex flex-col relative z-20 shadow-2xl overflow-hidden">
-
+    <aside
+      className="w-[440px] flex flex-col relative z-20 overflow-hidden"
+      style={{
+        background: "var(--surface)",
+        borderLeft: "1px solid var(--border)",
+        boxShadow: "-4px 0 20px rgba(0,0,0,0.3)",
+      }}
+    >
       {/* Tab Header */}
       {selectedName && (
-        <div className="flex bg-zinc-900 border-b border-zinc-800 p-2 gap-2 shrink-0" style={{ position: "relative", zIndex: 40 }}>
+        <div
+          className="flex shrink-0 px-4 gap-1"
+          style={{
+            position: "relative",
+            zIndex: 40,
+            borderBottom: "1px solid var(--border)",
+            background: "var(--surface)",
+          }}
+        >
           <button
-            onClick={() => { setActiveTab("data"); onDismissLandParcels?.(); }}
-            className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "data" && !activeLandParcels ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+            onClick={() => {
+              setActiveTab("data");
+              onDismissLandParcels?.();
+            }}
+            className="py-3 px-1 text-sm font-medium transition-all"
+            style={{
+              color:
+                activeTab === "data" && !activeLandParcels
+                  ? "var(--text)"
+                  : "var(--text-3)",
+              borderBottom:
+                activeTab === "data" && !activeLandParcels
+                  ? "2px solid var(--text)"
+                  : "2px solid transparent",
+              marginBottom: "-1px",
+            }}
           >
             Data Report
           </button>
           <button
-            onClick={() => { setActiveTab("chat"); onDismissLandParcels?.(); }}
-            className={`flex-1 flex justify-center items-center gap-2 py-1.5 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "chat" && !activeLandParcels ? "bg-blue-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"}`}
+            onClick={() => {
+              setActiveTab("chat");
+              onDismissLandParcels?.();
+            }}
+            className="py-3 px-1 ml-4 text-sm font-medium transition-all"
+            style={{
+              color:
+                activeTab === "chat" && !activeLandParcels
+                  ? "var(--text)"
+                  : "var(--text-3)",
+              borderBottom:
+                activeTab === "chat" && !activeLandParcels
+                  ? "2px solid var(--accent)"
+                  : "2px solid transparent",
+              marginBottom: "-1px",
+            }}
           >
             AI Assistant
           </button>
@@ -443,27 +595,36 @@ export function SidePanel({
       )}
 
       {/* Queue status bar — always on top, shows only when work is pending */}
-      <div className={`transition-opacity duration-300 ${(activeTab === "data" || !selectedName) ? "opacity-100" : "opacity-0 pointer-events-none absolute"}`}>
+      <div
+        className={`transition-opacity duration-300 ${activeTab === "data" || !selectedName ? "opacity-100" : "opacity-0 pointer-events-none absolute"}`}
+      >
         {/* Report bar — hex loading row included inline when a report is also running */}
-        <QueueStatusBar activeJob={activeJob} queuedJobs={queuedJobs} hexLoadingName={hexLoadingName} />
+        <QueueStatusBar
+          activeJob={activeJob}
+          queuedJobs={queuedJobs}
+          hexLoadingName={hexLoadingName}
+        />
 
         {/* Standalone hex bars — only when no report bar is visible */}
         {!activeJob && queuedJobs.length === 0 && hexLoadingName && (
           <HexLoadingBar name={hexLoadingName} />
         )}
         {/* Hex done bar: suppress if you're already on that school (hex is visible) */}
-        {!activeJob && queuedJobs.length === 0 && !hexLoadingName && hexJustLoaded && hexJustLoaded !== selectedName && (
-          <HexDoneBar name={hexJustLoaded} />
-        )}
+        {!activeJob &&
+          queuedJobs.length === 0 &&
+          !hexLoadingName &&
+          hexJustLoaded &&
+          hexJustLoaded !== selectedName && <HexDoneBar name={hexJustLoaded} />}
 
         {/* Done banners: suppress if you're already viewing that school's report */}
         {doneJobs
-          .filter(job => {
+          .filter((job) => {
             const jobName = job.resolvedName ?? job.name;
-            const isCurrentSchool = jobName === selectedName || job.name === selectedName;
+            const isCurrentSchool =
+              jobName === selectedName || job.name === selectedName;
             return !(isCurrentSchool && showScore);
           })
-          .map(job => (
+          .map((job) => (
             <DoneBanner
               key={job.id}
               job={job}
@@ -474,7 +635,7 @@ export function SidePanel({
           ))}
 
         {/* Error banners */}
-        {errorJobs.map(job => (
+        {errorJobs.map((job) => (
           <ErrorBanner
             key={job.id}
             job={job}
@@ -498,7 +659,9 @@ export function SidePanel({
         {/* Empty — nothing selected */}
         <div
           className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${
-            (activeTab === "data" || !selectedName) && showEmpty ? "opacity-100" : "opacity-0 pointer-events-none"
+            (activeTab === "data" || !selectedName) && showEmpty
+              ? "opacity-100"
+              : "opacity-0 pointer-events-none"
           }`}
         >
           <EmptyState
@@ -510,26 +673,43 @@ export function SidePanel({
         {/* Preview — university selected but not yet computed */}
         <div
           className={`absolute inset-0 transition-opacity duration-300 ${
-            (activeTab === "data" || !selectedName) && showPreview ? "opacity-100" : "opacity-0 pointer-events-none"
+            (activeTab === "data" || !selectedName) && showPreview
+              ? "opacity-100"
+              : "opacity-0 pointer-events-none"
           }`}
         >
           {selectedName && (
-            <PreviewPanel name={selectedName} onGenerateReport={onGenerateReport} />
+            <PreviewPanel
+              name={selectedName}
+              onGenerateReport={onGenerateReport}
+            />
           )}
         </div>
 
         {/* Score — computed result */}
         <div
           className={`absolute inset-0 overflow-y-auto transition-opacity duration-300 ${
-            (activeTab === "data" || !selectedName) && showScore ? "opacity-100" : "opacity-0 pointer-events-none"
+            (activeTab === "data" || !selectedName) && showScore
+              ? "opacity-100"
+              : "opacity-0 pointer-events-none"
           }`}
         >
-          {activeScore && <ScorePanel score={activeScore} onRecompute={onRecompute} />}
+          {activeScore && (
+            <ScorePanel score={activeScore} onRecompute={onRecompute} />
+          )}
         </div>
-        
+
         {/* Chatbot Panel - rendered always, but visibility depends on tab */}
-        <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === "chat" && !!selectedName ? "opacity-100 z-10" : "opacity-0 pointer-events-none"}`}>
-          <ChatbotWidget selectedName={selectedName} activeScore={activeScore} selectedHex={selectedHexProps ?? null} onUniversityScored={onUniversityScored} onSelectHex={onSelectHex} />
+        <div
+          className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === "chat" && !!selectedName ? "opacity-100 z-10" : "opacity-0 pointer-events-none"}`}
+        >
+          <ChatbotWidget
+            selectedName={selectedName}
+            activeScore={activeScore}
+            selectedHex={selectedHexProps ?? null}
+            onUniversityScored={onUniversityScored}
+            onSelectHex={onSelectHex}
+          />
         </div>
       </div>
     </aside>

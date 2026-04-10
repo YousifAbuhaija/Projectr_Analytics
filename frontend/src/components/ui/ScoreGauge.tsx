@@ -47,11 +47,16 @@ export function ScoreGauge({ score, label }: ScoreGaugeProps) {
           strokeDasharray={`${fill} ${C}`}
           strokeLinecap="round"
           transform={`rotate(-180 ${cx} ${cy})`}
-          style={{ transition: "stroke-dasharray 0.8s cubic-bezier(0.4,0,0.2,1)" }}
+          style={{
+            transition: "stroke-dasharray 0.8s cubic-bezier(0.4,0,0.2,1)",
+          }}
         />
       </svg>
       <div className="absolute bottom-0 flex flex-col items-center pointer-events-none">
-        <span className="text-4xl font-black tabular-nums tracking-tighter" style={{ color }}>
+        <span
+          className="text-4xl font-black tabular-nums tracking-tighter"
+          style={{ color }}
+        >
           {score.toFixed(1)}
         </span>
         <span className="text-xs text-zinc-500 -mt-1">/ 100</span>

@@ -27,7 +27,9 @@ export function generateCompareInsight(
   const deltas = [
     {
       label: "enrollment growth",
-      diff: higher.components.enrollment_pressure - lower.components.enrollment_pressure,
+      diff:
+        higher.components.enrollment_pressure -
+        lower.components.enrollment_pressure,
     },
     {
       label: "permit shortfall",

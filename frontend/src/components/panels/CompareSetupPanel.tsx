@@ -3,7 +3,13 @@
  * while the user is picking universities in compare mode.
  */
 
-import { GitCompareArrows, Loader2, CheckCircle2, MousePointerClick, Clock } from "lucide-react";
+import {
+  GitCompareArrows,
+  Loader2,
+  CheckCircle2,
+  MousePointerClick,
+  Clock,
+} from "lucide-react";
 import type { HousingPressureScore } from "../../lib/api";
 
 interface LogEntry {
@@ -21,43 +27,64 @@ interface SlotProps {
 }
 
 function Slot({ index, name, status, score }: SlotProps) {
-  return (
-    <div className={`rounded-xl border p-4 transition-all ${
-      status === "ready"
-        ? "border-green-500/30 bg-green-500/5"
-        : status === "loading"
-        ? "border-blue-500/30 bg-blue-500/5"
+  const borderColor =
+    status === "ready"
+      ? "rgba(52,211,153,0.25)"
+      : status === "loading"
+        ? "rgba(255,255,255,0.15)"
         : status === "queued"
-        ? "border-amber-500/30 bg-amber-500/5"
-        : status === "selected"
-        ? "border-zinc-600 bg-zinc-900"
-        : "border-dashed border-zinc-700 bg-zinc-900/50"
-    }`}>
+          ? "rgba(251,191,36,0.25)"
+          : "var(--border)";
+
+  const bgColor =
+    status === "ready"
+      ? "rgba(52,211,153,0.04)"
+      : status === "loading"
+        ? "rgba(255,255,255,0.03)"
+        : status === "queued"
+          ? "rgba(251,191,36,0.04)"
+          : "var(--surface-2)";
+
+  return (
+    <div
+      className="rounded-xl p-4 transition-all"
+      style={{ border: `1px solid ${borderColor}`, background: bgColor }}
+    >
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-xs font-bold text-zinc-500 uppercase">
+        <span
+          className="text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: "var(--text-3)" }}
+        >
           University {index === 0 ? "A" : "B"}
         </span>
-        {status === "ready"   && <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />}
-        {status === "loading" && <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />}
-        {status === "queued"  && <Clock className="w-3.5 h-3.5 text-amber-400" />}
+        {status === "ready" && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+        {status === "loading" && <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--text-2)" }} />}
+        {status === "queued" && <Clock className="w-3.5 h-3.5 text-amber-400" />}
       </div>
 
       {status === "empty" ? (
-        <div className="flex items-center gap-2 text-zinc-600 mt-2">
+        <div className="flex items-center gap-2 mt-2" style={{ color: "var(--text-3)" }}>
           <MousePointerClick className="w-4 h-4" />
           <p className="text-sm">Click a pin on the map</p>
         </div>
       ) : (
         <div>
-          <p className="text-sm font-semibold text-zinc-200 leading-tight">{name}</p>
+          <p
+            className="text-sm font-semibold leading-tight"
+            style={{ fontFamily: "'Inter Tight', sans-serif", color: "var(--text)", letterSpacing: "-0.02em" }}
+          >
+            {name}
+          </p>
           {status === "loading" && (
-            <p className="text-xs text-blue-400 mt-1 animate-pulse">Generating report…</p>
+            <p className="text-xs mt-1 animate-pulse" style={{ color: "var(--text-2)" }}>
+              Generating report…
+            </p>
           )}
           {status === "queued" && (
-            <p className="text-xs text-amber-400 mt-1">Queued — will start shortly…</p>
+            <p className="text-xs mt-1 text-amber-400">Queued…</p>
           )}
           {status === "ready" && score && (
-            <p className="text-xs text-green-400 mt-1">
+            <p className="text-xs mt-1 text-emerald-400">
               Score: {score.score.toFixed(0)}/100 ✓
             </p>
           )}
@@ -92,33 +119,42 @@ export function CompareSetupPanel({
 
   const statusA = getStatus(compareNames[0]);
   const statusB = getStatus(compareNames[1]);
-  const isGenerating = statusA === "loading" || statusB === "loading"
-    || statusA === "queued" || statusB === "queued";
-  const oneReady = (statusA === "ready") !== (statusB === "ready"); // XOR
+  const isGenerating =
+    statusA === "loading" || statusB === "loading" ||
+    statusA === "queued" || statusB === "queued";
+  const oneReady = (statusA === "ready") !== (statusB === "ready");
 
   const subtitle = isGenerating
     ? "Generating reports, this may take a moment…"
     : oneReady
-    ? "Now select a second university"
-    : "Click two university pins on the map to compare their housing markets side-by-side.";
+      ? "Now select a second university"
+      : "Click two university pins on the map to compare their housing markets side-by-side.";
 
   const recentLogs = activeLogs.slice(-4);
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8">
-      <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center mb-6 transition-colors ${
-        isGenerating
-          ? "bg-blue-500/10 border-blue-500/20"
-          : "bg-blue-500/10 border-blue-500/20"
-      }`}>
-        {isGenerating
-          ? <Loader2 className="w-7 h-7 text-blue-400 animate-spin" />
-          : <GitCompareArrows className="w-7 h-7 text-blue-400" />
-        }
+      <div
+        className="w-14 h-14 rounded-xl flex items-center justify-center mb-6"
+        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+      >
+        {isGenerating ? (
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--text-2)" }} />
+        ) : (
+          <GitCompareArrows className="w-6 h-6" style={{ color: "var(--text-2)" }} />
+        )}
       </div>
 
-      <h2 className="text-lg font-bold text-zinc-200 mb-1">Compare Mode</h2>
-      <p className="text-sm text-zinc-500 mb-8 text-center max-w-xs transition-all">
+      <h2
+        className="text-base font-semibold mb-2"
+        style={{ fontFamily: "'Inter Tight', sans-serif", color: "var(--text)", letterSpacing: "-0.025em" }}
+      >
+        Compare Mode
+      </h2>
+      <p
+        className="text-sm mb-8 text-center max-w-xs leading-relaxed"
+        style={{ color: "var(--text-2)" }}
+      >
         {subtitle}
       </p>
 
@@ -127,27 +163,28 @@ export function CompareSetupPanel({
           index={0}
           name={compareNames[0]}
           status={statusA}
-          score={compareNames[0] ? scoreCache[compareNames[0]] ?? null : null}
+          score={compareNames[0] ? (scoreCache[compareNames[0]] ?? null) : null}
         />
 
-        {/* Connector */}
         <div className="flex justify-center">
-          <div className="w-px h-4 bg-zinc-700" />
+          <div className="w-px h-4" style={{ background: "var(--border)" }} />
         </div>
 
         <Slot
           index={1}
           name={compareNames[1]}
           status={statusB}
-          score={compareNames[1] ? scoreCache[compareNames[1]] ?? null : null}
+          score={compareNames[1] ? (scoreCache[compareNames[1]] ?? null) : null}
         />
 
-        {/* Live log tail — only visible while a report is running */}
         {recentLogs.length > 0 && (
-          <div className="mt-4 bg-zinc-950/60 rounded-lg px-3 py-2 font-mono text-[10px] space-y-0.5 max-h-[72px] overflow-y-auto">
+          <div
+            className="mt-4 rounded-lg px-3 py-2 font-mono text-[10px] space-y-0.5 max-h-[72px] overflow-y-auto"
+            style={{ background: "rgba(0,0,0,0.4)" }}
+          >
             {recentLogs.map((log, i) => (
-              <div key={i} className="text-zinc-500 truncate leading-relaxed">
-                <span className="text-zinc-700 mr-1.5">
+              <div key={i} className="truncate leading-relaxed" style={{ color: "var(--text-3)" }}>
+                <span className="mr-1.5" style={{ color: "rgba(255,255,255,0.15)" }}>
                   {log.ts.toLocaleTimeString("en", {
                     hour12: false,
                     hour: "2-digit",

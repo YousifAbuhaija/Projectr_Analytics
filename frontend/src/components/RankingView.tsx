@@ -1,12 +1,9 @@
 /**
  * RankingView — leaderboard of universities ranked by Housing Pressure Score.
- *
- * Full sortable table with state + score filters.
- * Click any row → uses existing handleSelectUniversity to navigate.
  */
 
 import { useState, useMemo } from "react";
-import { TrendingUp, ChevronDown, ArrowLeft } from "lucide-react";
+import { TrendingUp, ChevronDown, ArrowLeft, ArrowRight } from "lucide-react";
 import type { UniversityListItem } from "../lib/api";
 
 const SCORE_COLOR = (score: number) =>
@@ -14,13 +11,6 @@ const SCORE_COLOR = (score: number) =>
 
 const LABEL = (score: number) =>
   score >= 70 ? "High Pressure" : score >= 40 ? "Emerging" : "Balanced";
-
-const LABEL_CLASS = (score: number) =>
-  score >= 70
-    ? "text-red-400 bg-red-500/10 border-red-500/20"
-    : score >= 40
-    ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20"
-    : "text-green-400 bg-green-500/10 border-green-500/20";
 
 type ScoreFilter = "all" | "high" | "medium" | "low";
 
@@ -30,28 +20,30 @@ interface RankingViewProps {
   onExitRanking: () => void;
 }
 
-export function RankingView({ universities, onSelect, onExitRanking }: RankingViewProps) {
+export function RankingView({
+  universities,
+  onSelect,
+  onExitRanking,
+}: RankingViewProps) {
   const [stateFilter, setStateFilter] = useState("");
   const [scoreFilter, setScoreFilter] = useState<ScoreFilter>("all");
 
-  // Sort by score descending
   const sorted = useMemo(
     () => [...universities].sort((a, b) => b.score - a.score),
     [universities],
   );
 
-  // Unique states for the dropdown
   const states = useMemo(
     () => [...new Set(sorted.map((u) => u.state))].sort(),
     [sorted],
   );
 
-  // Apply filters
   const filtered = useMemo(() => {
     return sorted.filter((u) => {
       if (stateFilter && u.state !== stateFilter) return false;
       if (scoreFilter === "high" && u.score < 70) return false;
-      if (scoreFilter === "medium" && (u.score < 40 || u.score >= 70)) return false;
+      if (scoreFilter === "medium" && (u.score < 40 || u.score >= 70))
+        return false;
       if (scoreFilter === "low" && u.score >= 40) return false;
       return true;
     });
@@ -63,28 +55,46 @@ export function RankingView({ universities, onSelect, onExitRanking }: RankingVi
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-zinc-950">
+    <div className="flex-1 overflow-y-auto" style={{ background: "var(--bg)" }}>
       <div className="max-w-5xl mx-auto px-6 py-8">
-
         {/* Back to Map */}
         <button
           onClick={onExitRanking}
-          className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors mb-6"
+          className="flex items-center gap-2 text-sm transition-colors mb-8"
+          style={{ color: "var(--text-2)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-2)")}
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Map
         </button>
 
+        {/* Header */}
+        <div className="mb-6">
+          <h2
+            className="text-xl font-semibold tracking-tight"
+            style={{
+              fontFamily: "'Inter Tight', sans-serif",
+              color: "var(--text)",
+            }}
+          >
+            Market Rankings
+          </h2>
+          <p className="text-sm mt-1" style={{ color: "var(--text-2)" }}>
+            Universities ranked by Housing Pressure Score
+          </p>
+        </div>
+
         {/* Filters */}
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-3 mb-5 flex-wrap">
           <div className="flex items-center gap-2 mr-auto">
-            <TrendingUp className="w-4 h-4 text-zinc-500" />
-            <h3 className="text-sm font-semibold text-zinc-300">
-              Market Rankings
-              <span className="text-zinc-600 font-normal ml-2">
-                {filtered.length} of {sorted.length}
-              </span>
-            </h3>
+            <TrendingUp
+              className="w-4 h-4"
+              style={{ color: "var(--text-3)" }}
+            />
+            <span className="text-sm" style={{ color: "var(--text-2)" }}>
+              {filtered.length} of {sorted.length} universities
+            </span>
           </div>
 
           {/* State filter */}
@@ -92,33 +102,52 @@ export function RankingView({ universities, onSelect, onExitRanking }: RankingVi
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value)}
-              className="appearance-none bg-zinc-900 border border-zinc-700 rounded-lg pl-3 pr-8 py-1.5
-                         text-xs font-medium text-zinc-300 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              className="appearance-none pl-3 pr-8 py-1.5 text-xs font-medium outline-none cursor-pointer transition-all"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "8px",
+                color: "var(--text-2)",
+              }}
             >
               <option value="">All States</option>
               {states.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+            <ChevronDown
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
+              style={{ color: "var(--text-3)" }}
+            />
           </div>
 
           {/* Score filter buttons */}
-          <div className="flex rounded-lg border border-zinc-800 overflow-hidden">
-            {([
-              ["all", "All"],
-              ["high", "70+"],
-              ["medium", "40–69"],
-              ["low", "<40"],
-            ] as [ScoreFilter, string][]).map(([key, label]) => (
+          <div
+            className="flex rounded-lg overflow-hidden"
+            style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {(
+              [
+                ["all", "All"],
+                ["high", "70+"],
+                ["medium", "40–69"],
+                ["low", "<40"],
+              ] as [ScoreFilter, string][]
+            ).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setScoreFilter(key)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                className="px-3 py-1.5 text-xs font-medium transition-all"
+                style={
                   scoreFilter === key
-                    ? "bg-blue-600 text-white"
-                    : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                }`}
+                    ? { background: "#fff", color: "#0f0f0f" }
+                    : {
+                        background: "transparent",
+                        color: "rgba(255,255,255,0.4)",
+                      }
+                }
               >
                 {label}
               </button>
@@ -126,20 +155,30 @@ export function RankingView({ universities, onSelect, onExitRanking }: RankingVi
           </div>
         </div>
 
-        {/* Leaderboard Table */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
+        {/* Table */}
+        <div className="card-quantum overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[48px_1fr_140px_100px_100px] gap-2 px-4 py-3 border-b border-zinc-800 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-            <span>#</span>
-            <span>University</span>
-            <span>Location</span>
-            <span className="text-right">Score</span>
-            <span className="text-right">Status</span>
+          <div
+            className="grid grid-cols-[48px_1fr_140px_100px_100px] gap-2 px-4 py-3"
+            style={{ borderBottom: "1px solid var(--border)" }}
+          >
+            {["#", "University", "Location", "Score", "Status"].map((h, i) => (
+              <span
+                key={h}
+                className={`text-[10px] font-semibold uppercase tracking-widest ${i >= 3 ? "text-right" : ""}`}
+                style={{ color: "var(--text-3)" }}
+              >
+                {h}
+              </span>
+            ))}
           </div>
 
           {/* Rows */}
           {filtered.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-zinc-600">
+            <div
+              className="px-4 py-12 text-center text-sm"
+              style={{ color: "var(--text-3)" }}
+            >
               No universities match the current filters.
             </div>
           ) : (
@@ -150,31 +189,50 @@ export function RankingView({ universities, onSelect, onExitRanking }: RankingVi
                 <button
                   key={uni.unitid}
                   onClick={() => handleClick(uni.name)}
-                  className="w-full grid grid-cols-[48px_1fr_140px_100px_100px] gap-2 px-4 py-3 items-center
-                             border-b border-zinc-800/50 last:border-b-0
-                             hover:bg-zinc-800/50 transition-colors text-left group"
+                  className="w-full grid grid-cols-[48px_1fr_140px_100px_100px] gap-2 px-4 py-3 items-center text-left group transition-colors"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.03)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
                 >
-                  <span className={`text-sm font-bold tabular-nums ${rank <= 3 ? "text-amber-400" : "text-zinc-600"}`}>
+                  <span
+                    className="text-sm font-semibold tabular-nums"
+                    style={{ color: rank <= 3 ? "#f59e0b" : "var(--text-3)" }}
+                  >
                     {rank}
                   </span>
 
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-zinc-200 truncate group-hover:text-white transition-colors">
+                  <div className="min-w-0 flex items-center gap-2">
+                    <p
+                      className="text-sm font-medium truncate transition-colors"
+                      style={{ color: "var(--text-2)" }}
+                    >
                       {uni.name}
                     </p>
+                    <ArrowRight
+                      className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ color: "var(--text-3)" }}
+                    />
                   </div>
 
-                  <p className="text-xs text-zinc-500 truncate">
+                  <p
+                    className="text-xs truncate"
+                    style={{ color: "var(--text-3)" }}
+                  >
                     {uni.city}, {uni.state}
                   </p>
 
                   <div className="flex items-center justify-end gap-2">
                     <div
-                      className="w-2 h-2 rounded-full"
+                      className="w-1.5 h-1.5 rounded-full"
                       style={{ background: SCORE_COLOR(uni.score) }}
                     />
                     <span
-                      className="text-sm font-bold tabular-nums"
+                      className="text-sm font-semibold tabular-nums"
                       style={{ color: SCORE_COLOR(uni.score) }}
                     >
                       {uni.score.toFixed(1)}
@@ -182,7 +240,14 @@ export function RankingView({ universities, onSelect, onExitRanking }: RankingVi
                   </div>
 
                   <div className="flex justify-end">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${LABEL_CLASS(uni.score)}`}>
+                    <span
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                      style={{
+                        border: `1px solid ${SCORE_COLOR(uni.score)}40`,
+                        color: SCORE_COLOR(uni.score),
+                        background: `${SCORE_COLOR(uni.score)}10`,
+                      }}
+                    >
                       {LABEL(uni.score)}
                     </span>
                   </div>

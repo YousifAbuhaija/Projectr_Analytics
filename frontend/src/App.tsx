@@ -3,7 +3,13 @@ import { exportToPDF } from "./lib/exportReport";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { streamScore, fetchUniversities } from "./lib/api";
 import { fetchHexGrid } from "./lib/hexApi";
-import { readCache, writeEntry, readSplitCache, writeSplitEntry, purgeSplitCache } from "./lib/storage";
+import {
+  readCache,
+  writeEntry,
+  readSplitCache,
+  writeSplitEntry,
+  purgeSplitCache,
+} from "./lib/storage";
 import { UNIVERSITIES } from "./lib/universityList";
 import type { UniversitySuggestion } from "./lib/universityList";
 import { SearchBar } from "./components/ui/SearchBar";
@@ -47,18 +53,21 @@ function extractDomain(url: string | null): string {
     const withProto = url.startsWith("http") ? url : `https://${url}`;
     return new URL(withProto).hostname.replace(/^www\./, "");
   } catch {
-    return url.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+    return url
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0];
   }
 }
 
 function isValidLatLng(lat: number, lng: number): boolean {
   return (
-    Number.isFinite(lat)
-    && Number.isFinite(lng)
-    && lat >= -90
-    && lat <= 90
-    && lng >= -180
-    && lng <= 180
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
   );
 }
 
@@ -73,8 +82,8 @@ function normalizeSchoolName(name: string): string {
 function isVirginiaTechName(name: string): boolean {
   const normalized = normalizeSchoolName(name);
   return (
-    normalized.includes("virginia tech")
-    || normalized.includes("virginia polytechnic institute and state university")
+    normalized.includes("virginia tech") ||
+    normalized.includes("virginia polytechnic institute and state university")
   );
 }
 
@@ -82,7 +91,7 @@ function hexCacheKey(
   name: string,
   resolution: number,
   debugHex: boolean,
-  radiusMiles: number
+  radiusMiles: number,
 ): string {
   const radiusToken = radiusMiles.toFixed(2);
   return `${name}::hex_r${resolution}::rad${radiusToken}${debugHex ? "::dbg1" : ""}`;
@@ -90,7 +99,7 @@ function hexCacheKey(
 
 function clearHexEntriesForName(
   cache: Record<string, HexGeoJSON>,
-  name: string
+  name: string,
 ): Record<string, HexGeoJSON> {
   const next = { ...cache };
   for (const key of Object.keys(next)) {
@@ -104,7 +113,7 @@ function clearHexEntriesForName(
 function findKnownCoords(
   name: string,
   dynamicUnis: Record<string, UniversitySuggestion>,
-  scoreCache?: Record<string, HousingPressureScore>
+  scoreCache?: Record<string, HousingPressureScore>,
 ): { lat: number; lng: number } | null {
   const dynamic = dynamicUnis[name];
   if (dynamic && isValidLatLng(dynamic.lat, dynamic.lon)) {
@@ -118,33 +127,30 @@ function findKnownCoords(
   const target = normalizeSchoolName(name);
   for (const uni of Object.values(dynamicUnis)) {
     if (
-      normalizeSchoolName(uni.name) === target
-      && isValidLatLng(uni.lat, uni.lon)
+      normalizeSchoolName(uni.name) === target &&
+      isValidLatLng(uni.lat, uni.lon)
     ) {
       return { lat: uni.lat, lng: uni.lon };
     }
   }
   for (const uni of UNIVERSITIES) {
     if (
-      normalizeSchoolName(uni.name) === target
-      && isValidLatLng(uni.lat, uni.lon)
+      normalizeSchoolName(uni.name) === target &&
+      isValidLatLng(uni.lat, uni.lon)
     ) {
       return { lat: uni.lat, lng: uni.lon };
     }
   }
   if (scoreCache) {
     const scored = scoreCache[name];
-    if (
-      scored
-      && isValidLatLng(scored.university.lat, scored.university.lon)
-    ) {
+    if (scored && isValidLatLng(scored.university.lat, scored.university.lon)) {
       return { lat: scored.university.lat, lng: scored.university.lon };
     }
     for (const value of Object.values(scoreCache)) {
       const uni = value.university;
       if (
-        normalizeSchoolName(uni.name) === target
-        && isValidLatLng(uni.lat, uni.lon)
+        normalizeSchoolName(uni.name) === target &&
+        isValidLatLng(uni.lat, uni.lon)
       ) {
         return { lat: uni.lat, lng: uni.lon };
       }
@@ -156,34 +162,49 @@ function findKnownCoords(
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedCoords, setSelectedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   // Persistent score + hex caches — survive page refresh for 24 h
-  const [scoreCache, setScoreCache] = useState<Record<string, HousingPressureScore>>(
-    () => readCache<HousingPressureScore>(SCORE_CACHE_KEY)
-  );
-  const [hexCache, setHexCache] = useState<Record<string, HexGeoJSON>>(
-    () => readSplitCache<HexGeoJSON>(HEX_CACHE_KEY)
+  const [scoreCache, setScoreCache] = useState<
+    Record<string, HousingPressureScore>
+  >(() => readCache<HousingPressureScore>(SCORE_CACHE_KEY));
+  const [hexCache, setHexCache] = useState<Record<string, HexGeoJSON>>(() =>
+    readSplitCache<HexGeoJSON>(HEX_CACHE_KEY),
   );
 
   // Currently selected hex cell (clicked by user on map) — forwarded to chat
-  const [selectedHexProps, setSelectedHexProps] = useState<HexFeatureProperties | null>(null);
+  const [selectedHexProps, setSelectedHexProps] =
+    useState<HexFeatureProperties | null>(null);
   // Hex ID to focus on the map (set by chat agent recommendations)
   const [focusHexId, setFocusHexId] = useState<string | null>(null);
 
   // Land parcel detail panel — populated when user clicks "view all" in a hex popup
   const [activeLandParcels, setActiveLandParcels] = useState<{
-    parcels: { address: string; lot_size_acres: number; land_value: number; market_value: number; owner_name: string; is_absentee: boolean; land_use: string; parcel_type: string }[];
+    parcels: {
+      address: string;
+      lot_size_acres: number;
+      land_value: number;
+      market_value: number;
+      owner_name: string;
+      is_absentee: boolean;
+      land_use: string;
+      parcel_type: string;
+    }[];
     label: string;
   } | null>(null);
 
   // Dynamic universities discovered via search — appear as map pins and suggestions
-  const [dynamicUnis, setDynamicUnis] = useState<Record<string, UniversitySuggestion>>(
-    () => readCache<UniversitySuggestion>(DYNAMIC_UNIS_CACHE_KEY)
-  );
+  const [dynamicUnis, setDynamicUnis] = useState<
+    Record<string, UniversitySuggestion>
+  >(() => readCache<UniversitySuggestion>(DYNAMIC_UNIS_CACHE_KEY));
 
   const [mapZoom, setMapZoom] = useState<number>(14);
-  const [hexRadiusMiles, setHexRadiusMiles] = useState(DEFAULT_HEX_RADIUS_MILES);
+  const [hexRadiusMiles, setHexRadiusMiles] = useState(
+    DEFAULT_HEX_RADIUS_MILES,
+  );
 
   // ── Report queue ────────────────────────────────────────────────────────────
   const [reportQueue, setReportQueue] = useState<ReportJob[]>([]);
@@ -191,11 +212,14 @@ function App() {
   const inflightHexLoadsRef = useRef<Set<string>>(new Set());
 
   // ── Hex loading state ────────────────────────────────────────────────────────
-  const [hexLoadingNames, setHexLoadingNames] = useState<Set<string>>(new Set());
+  const [hexLoadingNames, setHexLoadingNames] = useState<Set<string>>(
+    new Set(),
+  );
   const [hexJustLoaded, setHexJustLoaded] = useState<string | null>(null);
 
   // Derived — what CompareSetupPanel needs
-  const loadingName = reportQueue.find(j => j.status === "running")?.name ?? null;
+  const loadingName =
+    reportQueue.find((j) => j.status === "running")?.name ?? null;
 
   // One-time cache schema migration: clears old localhost cache buckets.
   useEffect(() => {
@@ -239,11 +263,15 @@ function App() {
 
   // ── Compare mode state ──────────────────────────────────────────────────────
   const [compareMode, setCompareMode] = useState(false);
-  const [compareNames, setCompareNames] = useState<[string | null, string | null]>([null, null]);
+  const [compareNames, setCompareNames] = useState<
+    [string | null, string | null]
+  >([null, null]);
 
   // ── Ranking mode state ──────────────────────────────────────────────────
   const [rankingMode, setRankingMode] = useState(false);
-  const [nationalUniversities, setNationalUniversities] = useState<UniversityListItem[]>([]);
+  const [nationalUniversities, setNationalUniversities] = useState<
+    UniversityListItem[]
+  >([]);
 
   // Fetch pre-scored universities on mount
   useEffect(() => {
@@ -269,8 +297,12 @@ function App() {
   })();
 
   // Derived — compare panel data
-  const compareScoreA = compareNames[0] ? (scoreCache[compareNames[0]] ?? null) : null;
-  const compareScoreB = compareNames[1] ? (scoreCache[compareNames[1]] ?? null) : null;
+  const compareScoreA = compareNames[0]
+    ? (scoreCache[compareNames[0]] ?? null)
+    : null;
+  const compareScoreB = compareNames[1]
+    ? (scoreCache[compareNames[1]] ?? null)
+    : null;
   const showCompareResult = compareMode && compareScoreA && compareScoreB;
 
   // ── Hex loading ─────────────────────────────────────────────────────────────
@@ -282,7 +314,7 @@ function App() {
     radiusMiles: number,
     debugHex: boolean,
     clearTargetBeforeLoad = false,
-    persistToStorage = true
+    persistToStorage = true,
   ) => {
     const names = Array.from(new Set(cacheNames.filter(Boolean)));
     if (names.length === 0) return;
@@ -290,7 +322,7 @@ function App() {
     const requestKey = `${queryName}::hex_r${resolution}::rad${radiusMiles.toFixed(2)}${debugHex ? "::dbg1" : ""}`;
     if (inflightHexLoadsRef.current.has(requestKey)) return;
     inflightHexLoadsRef.current.add(requestKey);
-    setHexLoadingNames(prev => new Set([...prev, queryName]));
+    setHexLoadingNames((prev) => new Set([...prev, queryName]));
     setHexJustLoaded(null);
 
     try {
@@ -304,7 +336,11 @@ function App() {
         });
       }
 
-      let partial: HexGeoJSON = { type: "FeatureCollection", features: [], metadata: undefined };
+      let partial: HexGeoJSON = {
+        type: "FeatureCollection",
+        features: [],
+        metadata: undefined,
+      };
 
       const applyPartial = (payload: HexGeoJSON) => {
         setHexCache((prev) => {
@@ -318,24 +354,37 @@ function App() {
 
       applyPartial(partial);
 
-      partial = await fetchHexGrid(queryName, radiusMiles, resolution, false, debugHex);
+      partial = await fetchHexGrid(
+        queryName,
+        radiusMiles,
+        resolution,
+        false,
+        debugHex,
+      );
       applyPartial(partial);
       if (persistToStorage) {
         for (const n of names) {
-          writeSplitEntry(HEX_CACHE_KEY, hexCacheKey(n, resolution, debugHex, radiusMiles), partial);
+          writeSplitEntry(
+            HEX_CACHE_KEY,
+            hexCacheKey(n, resolution, debugHex, radiusMiles),
+            partial,
+          );
         }
       }
     } catch {
       // keep side panel usable even if hex fetch fails
     } finally {
       inflightHexLoadsRef.current.delete(requestKey);
-      setHexLoadingNames(prev => {
+      setHexLoadingNames((prev) => {
         const next = new Set(prev);
         next.delete(queryName);
         return next;
       });
       setHexJustLoaded(queryName);
-      setTimeout(() => setHexJustLoaded(prev => prev === queryName ? null : prev), 4000);
+      setTimeout(
+        () => setHexJustLoaded((prev) => (prev === queryName ? null : prev)),
+        4000,
+      );
     }
   };
 
@@ -349,29 +398,53 @@ function App() {
     if (!scoreCache[selectedName]) return;
     if (mapZoom < 11) return; // only load at city zoom
     const debugHex = isVirginiaTechName(selectedName);
-    const key = hexCacheKey(selectedName, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES);
+    const key = hexCacheKey(
+      selectedName,
+      HEX_RESOLUTION,
+      debugHex,
+      MAX_HEX_RADIUS_MILES,
+    );
     if (!hexCacheRef.current[key]) {
-      void loadHexStream(selectedName, [selectedName], HEX_RESOLUTION, MAX_HEX_RADIUS_MILES, debugHex, false);
+      void loadHexStream(
+        selectedName,
+        [selectedName],
+        HEX_RESOLUTION,
+        MAX_HEX_RADIUS_MILES,
+        debugHex,
+        false,
+      );
     }
   }, [selectedName, scoreCache, mapZoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Report queue processing ─────────────────────────────────────────────────
 
   const enqueueReport = (name: string, forceRefreshHex = false) => {
-    setReportQueue(prev => {
+    setReportQueue((prev) => {
       // Already queued or running — skip
-      if (prev.some(j => j.name === name && (j.status === "queued" || j.status === "running"))) {
+      if (
+        prev.some(
+          (j) =>
+            j.name === name &&
+            (j.status === "queued" || j.status === "running"),
+        )
+      ) {
         return prev;
       }
       // Remove any stale error/done entry for this name, then append
-      const filtered = prev.filter(j => !(j.name === name && (j.status === "error" || j.status === "done")));
+      const filtered = prev.filter(
+        (j) =>
+          !(j.name === name && (j.status === "error" || j.status === "done")),
+      );
       const id = `${name}::${Date.now()}`;
-      return [...filtered, { id, name, status: "queued", logs: [], forceRefreshHex }];
+      return [
+        ...filtered,
+        { id, name, status: "queued", logs: [], forceRefreshHex },
+      ];
     });
   };
 
   const dismissJob = (id: string) => {
-    setReportQueue(prev => prev.filter(j => j.id !== id));
+    setReportQueue((prev) => prev.filter((j) => j.id !== id));
   };
 
   const handleViewReport = (job: ReportJob) => {
@@ -385,8 +458,8 @@ function App() {
 
   // Process the next queued job whenever the queue changes
   useEffect(() => {
-    const nextQueued = reportQueue.find(j => j.status === "queued");
-    const hasRunning = reportQueue.some(j => j.status === "running");
+    const nextQueued = reportQueue.find((j) => j.status === "queued");
+    const hasRunning = reportQueue.some((j) => j.status === "running");
 
     if (!nextQueued || hasRunning || isProcessingRef.current) return;
 
@@ -394,36 +467,49 @@ function App() {
     const job = nextQueued;
 
     // Mark running synchronously, then execute
-    setReportQueue(prev => prev.map(j => j.id === job.id ? { ...j, status: "running" as const } : j));
+    setReportQueue((prev) =>
+      prev.map((j) =>
+        j.id === job.id ? { ...j, status: "running" as const } : j,
+      ),
+    );
 
     const run = async () => {
       const { id, name, forceRefreshHex } = job;
 
       if (forceRefreshHex) {
-        setHexCache(prev => clearHexEntriesForName(prev, name));
+        setHexCache((prev) => clearHexEntriesForName(prev, name));
       }
 
       try {
         for await (const event of streamScore(name)) {
           if (event.type === "log") {
-            setReportQueue(prev => prev.map(j =>
-              j.id === id
-                ? { ...j, logs: [...j.logs, { message: event.message, ts: new Date() }] }
-                : j
-            ));
+            setReportQueue((prev) =>
+              prev.map((j) =>
+                j.id === id
+                  ? {
+                      ...j,
+                      logs: [
+                        ...j.logs,
+                        { message: event.message, ts: new Date() },
+                      ],
+                    }
+                  : j,
+              ),
+            );
           } else if (event.type === "result") {
             const uni = event.data.university;
             const actualName = uni.name;
 
-            setScoreCache(prev => {
+            setScoreCache((prev) => {
               const next = { ...prev, [name]: event.data };
               if (actualName !== name) next[actualName] = event.data;
               return next;
             });
             writeEntry(SCORE_CACHE_KEY, name, event.data);
-            if (actualName !== name) writeEntry(SCORE_CACHE_KEY, actualName, event.data);
+            if (actualName !== name)
+              writeEntry(SCORE_CACHE_KEY, actualName, event.data);
 
-            setNationalUniversities(prev => {
+            setNationalUniversities((prev) => {
               const newItem: UniversityListItem = {
                 unitid: uni.unitid,
                 name: actualName,
@@ -432,9 +518,16 @@ function App() {
                 lat: uni.lat,
                 lon: uni.lon,
                 score: event.data.score,
-                score_label: event.data.score >= 70 ? "high" : event.data.score >= 40 ? "medium" : "low"
+                score_label:
+                  event.data.score >= 70
+                    ? "high"
+                    : event.data.score >= 40
+                      ? "medium"
+                      : "low",
               };
-              const existingIndex = prev.findIndex(u => u.unitid === uni.unitid);
+              const existingIndex = prev.findIndex(
+                (u) => u.unitid === uni.unitid,
+              );
               if (existingIndex >= 0) {
                 const next = [...prev];
                 next[existingIndex] = newItem;
@@ -444,8 +537,8 @@ function App() {
             });
 
             const inStatic =
-              UNIVERSITIES.some(u => u.name === name) ||
-              UNIVERSITIES.some(u => u.name === actualName);
+              UNIVERSITIES.some((u) => u.name === name) ||
+              UNIVERSITIES.some((u) => u.name === actualName);
 
             if (!inStatic) {
               const newPin: UniversitySuggestion = {
@@ -456,7 +549,7 @@ function App() {
                 lon: uni.lon,
                 domain: extractDomain(uni.url),
               };
-              setDynamicUnis(prev => ({ ...prev, [actualName]: newPin }));
+              setDynamicUnis((prev) => ({ ...prev, [actualName]: newPin }));
               writeEntry(DYNAMIC_UNIS_CACHE_KEY, actualName, newPin);
             }
 
@@ -464,21 +557,38 @@ function App() {
             // (driven by the hex loading useEffect, not eagerly here)
 
             // Mark done — let the user navigate themselves
-            setReportQueue(prev => prev.map(j =>
-              j.id === id ? { ...j, status: "done" as const, resolvedName: actualName } : j
-            ));
+            setReportQueue((prev) =>
+              prev.map((j) =>
+                j.id === id
+                  ? { ...j, status: "done" as const, resolvedName: actualName }
+                  : j,
+              ),
+            );
           } else if (event.type === "error") {
-            setReportQueue(prev => prev.map(j =>
-              j.id === id ? { ...j, status: "error" as const, errorMsg: event.message } : j
-            ));
+            setReportQueue((prev) =>
+              prev.map((j) =>
+                j.id === id
+                  ? { ...j, status: "error" as const, errorMsg: event.message }
+                  : j,
+              ),
+            );
           }
         }
       } catch (err: unknown) {
-        setReportQueue(prev => prev.map(j =>
-          j.id === id
-            ? { ...j, status: "error" as const, errorMsg: err instanceof Error ? err.message : "Failed to fetch score" }
-            : j
-        ));
+        setReportQueue((prev) =>
+          prev.map((j) =>
+            j.id === id
+              ? {
+                  ...j,
+                  status: "error" as const,
+                  errorMsg:
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to fetch score",
+                }
+              : j,
+          ),
+        );
       } finally {
         isProcessingRef.current = false;
       }
@@ -490,7 +600,8 @@ function App() {
   // Safety net: if a name is selected but coords are missing/stale, derive coords.
   useEffect(() => {
     if (!selectedName) return;
-    if (selectedCoords && isValidLatLng(selectedCoords.lat, selectedCoords.lng)) return;
+    if (selectedCoords && isValidLatLng(selectedCoords.lat, selectedCoords.lng))
+      return;
     const known = findKnownCoords(selectedName, dynamicUnis, scoreCache);
     if (known) setSelectedCoords(known);
   }, [selectedName, selectedCoords, dynamicUnis, scoreCache]);
@@ -498,7 +609,10 @@ function App() {
   // ── Handlers ────────────────────────────────────────────────────────────────
 
   /** Pin click or suggestion select */
-  const handleSelectUniversity = (name: string, coords?: { lat: number; lng: number }) => {
+  const handleSelectUniversity = (
+    name: string,
+    coords?: { lat: number; lng: number },
+  ) => {
     if (coords && isValidLatLng(coords.lat, coords.lng)) {
       setSelectedCoords(coords);
     } else {
@@ -575,10 +689,10 @@ function App() {
     const uni = score.university;
     const name = uni.name;
 
-    setScoreCache(prev => ({ ...prev, [name]: score }));
+    setScoreCache((prev) => ({ ...prev, [name]: score }));
     writeEntry(SCORE_CACHE_KEY, name, score);
 
-    setNationalUniversities(prev => {
+    setNationalUniversities((prev) => {
       const item: UniversityListItem = {
         unitid: uni.unitid,
         name,
@@ -587,9 +701,10 @@ function App() {
         lat: uni.lat,
         lon: uni.lon,
         score: score.score,
-        score_label: score.score >= 70 ? "high" : score.score >= 40 ? "medium" : "low",
+        score_label:
+          score.score >= 70 ? "high" : score.score >= 40 ? "medium" : "low",
       };
-      const idx = prev.findIndex(u => u.unitid === uni.unitid);
+      const idx = prev.findIndex((u) => u.unitid === uni.unitid);
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = item;
@@ -598,7 +713,7 @@ function App() {
       return [...prev, item];
     });
 
-    const inStatic = UNIVERSITIES.some(u => u.name === name);
+    const inStatic = UNIVERSITIES.some((u) => u.name === name);
     if (!inStatic) {
       const pin: UniversitySuggestion = {
         name,
@@ -608,7 +723,7 @@ function App() {
         lon: uni.lon,
         domain: extractDomain(uni.url),
       };
-      setDynamicUnis(prev => ({ ...prev, [name]: pin }));
+      setDynamicUnis((prev) => ({ ...prev, [name]: pin }));
       writeEntry(DYNAMIC_UNIS_CACHE_KEY, name, pin);
     }
 
@@ -629,9 +744,22 @@ function App() {
     // hex loading and shows a spurious loading indicator.
     if (!scoreCache[name]) return;
     const debugHex = isVirginiaTechName(name);
-    const key = hexCacheKey(name, HEX_RESOLUTION, debugHex, MAX_HEX_RADIUS_MILES);
+    const key = hexCacheKey(
+      name,
+      HEX_RESOLUTION,
+      debugHex,
+      MAX_HEX_RADIUS_MILES,
+    );
     if (!hexCache[key]) {
-      void loadHexStream(name, [name], HEX_RESOLUTION, MAX_HEX_RADIUS_MILES, debugHex, false, false);
+      void loadHexStream(
+        name,
+        [name],
+        HEX_RESOLUTION,
+        MAX_HEX_RADIUS_MILES,
+        debugHex,
+        false,
+        false,
+      );
     }
   };
 
@@ -679,18 +807,21 @@ function App() {
     ? compareNames[0] === null
       ? "Click a pin or search for first university…"
       : compareNames[1] === null
-      ? "Now click or search for the second…"
-      : undefined
+        ? "Now click or search for the second…"
+        : undefined
     : undefined;
 
   // Derive queue slices for SidePanel
-  const activeJob = reportQueue.find(j => j.status === "running") ?? null;
-  const queuedJobs = reportQueue.filter(j => j.status === "queued");
-  const doneJobs = reportQueue.filter(j => j.status === "done");
-  const errorJobs = reportQueue.filter(j => j.status === "error");
+  const activeJob = reportQueue.find((j) => j.status === "running") ?? null;
+  const queuedJobs = reportQueue.filter((j) => j.status === "queued");
+  const doneJobs = reportQueue.filter((j) => j.status === "done");
+  const errorJobs = reportQueue.filter((j) => j.status === "error");
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-zinc-950 text-zinc-50">
+    <div
+      className="flex flex-col h-screen overflow-hidden"
+      style={{ background: "var(--bg)" }}
+    >
       <SearchBar
         query={searchQuery}
         onChange={setSearchQuery}
@@ -728,8 +859,12 @@ function App() {
                 onZoomOut={handleZoomOutMap}
                 onZoomChange={setMapZoom}
                 onHoverPrefetch={handleHoverPrefetch}
-                isHexLoading={selectedName ? hexLoadingNames.has(selectedName) : false}
-                onViewAllParcels={(parcels, label) => setActiveLandParcels({ parcels, label })}
+                isHexLoading={
+                  selectedName ? hexLoadingNames.has(selectedName) : false
+                }
+                onViewAllParcels={(parcels, label) =>
+                  setActiveLandParcels({ parcels, label })
+                }
                 onHexSelect={setSelectedHexProps}
                 focusHexId={focusHexId}
               />
@@ -737,7 +872,7 @@ function App() {
 
             {/* Side panel: compare result → compare setup → normal */}
             {showCompareResult ? (
-              <aside className="w-[440px] border-l border-zinc-800 bg-zinc-950 flex flex-col relative z-20 shadow-2xl overflow-hidden">
+              <aside className="w-[440px] flex flex-col relative z-20 shadow-2xl overflow-hidden" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
                 <ComparePanel
                   scoreA={compareScoreA!}
                   scoreB={compareScoreB!}
@@ -745,12 +880,12 @@ function App() {
                 />
               </aside>
             ) : compareMode ? (
-              <aside className="w-[440px] border-l border-zinc-800 bg-zinc-950 flex flex-col relative z-20 shadow-2xl overflow-hidden">
+              <aside className="w-[440px] flex flex-col relative z-20 shadow-2xl overflow-hidden" style={{ background: 'var(--surface)', borderLeft: '1px solid var(--border)' }}>
                 <CompareSetupPanel
                   compareNames={compareNames}
                   scoreCache={scoreCache}
                   loadingName={loadingName}
-                  queuedNames={queuedJobs.map(j => j.name)}
+                  queuedNames={queuedJobs.map((j) => j.name)}
                   activeLogs={activeJob?.logs ?? []}
                 />
               </aside>
@@ -768,7 +903,9 @@ function App() {
                 onViewReport={handleViewReport}
                 onSelectNearest={handleSelectUniversity}
                 extraUniversities={Object.values(dynamicUnis)}
-                hexLoadingName={hexLoadingNames.size > 0 ? [...hexLoadingNames][0] : null}
+                hexLoadingName={
+                  hexLoadingNames.size > 0 ? [...hexLoadingNames][0] : null
+                }
                 hexJustLoaded={hexJustLoaded}
                 activeLandParcels={activeLandParcels}
                 onDismissLandParcels={() => setActiveLandParcels(null)}

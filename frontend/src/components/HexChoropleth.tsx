@@ -6,33 +6,38 @@ import type { HexGeoJSON, HexFeatureProperties } from "../lib/hexApi";
 import { detectPBSHFromParcels } from "../lib/pbshOperators";
 
 /** Convert CSS hex color + opacity to deck.gl RGBA tuple (0-255). */
-function hexToRgba(hex: string, opacity: number): [number, number, number, number] {
+function hexToRgba(
+  hex: string,
+  opacity: number,
+): [number, number, number, number] {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return [r, g, b, Math.round(opacity * 255)];
 }
 
-
 // Label-driven color palette. Each label gets a distinct, meaningful color.
 const LABEL_COLORS: Record<string, string> = {
-  protected:      "#64748b",  // slate gray — natural land, can't build
-  campus:         "#6b7280",  // neutral gray — university land
-  developed:      "#a855f7",  // purple — already built
-  constrained:    "#78716c",  // warm gray — terrain/zoning constraints
-  zoning_blocked: "#b45309",  // amber — buildable but zoning blocks
-  prime:          "#22c55e",  // bright green — best opportunity
-  opportunity:    "#84cc16",  // lime — good opportunity
-  emerging:       "#14b8a6",  // teal — some potential
-  open_land:      "#60a5fa",  // light blue — buildable but low demand, not bad just empty
+  protected: "#64748b", // slate gray — natural land, can't build
+  campus: "#6b7280", // neutral gray — university land
+  developed: "#a855f7", // purple — already built
+  constrained: "#78716c", // warm gray — terrain/zoning constraints
+  zoning_blocked: "#b45309", // amber — buildable but zoning blocks
+  prime: "#22c55e", // bright green — best opportunity
+  opportunity: "#84cc16", // lime — good opportunity
+  emerging: "#14b8a6", // teal — some potential
+  open_land: "#60a5fa", // light blue — buildable but low demand, not bad just empty
   // Legacy fallbacks
-  high:           "#22c55e",
-  medium:         "#eab308",
-  low:            "#60a5fa",
+  high: "#22c55e",
+  medium: "#eab308",
+  low: "#60a5fa",
 };
 
 // One-sentence plain-English verdict for the InfoWindow.
-function hexVerdict(hex: HexFeatureProperties, status: NormalizedStatus): string {
+function hexVerdict(
+  hex: HexFeatureProperties,
+  status: NormalizedStatus,
+): string {
   if (status === "Hard non-buildable") {
     return "Land constraints prevent development — water, wetland, forest, or preserved open space.";
   }
@@ -57,7 +62,8 @@ function hexVerdict(hex: HexFeatureProperties, status: NormalizedStatus): string
     return "University-zoned land. Off-limits for private development without institutional partnership.";
   }
   const lots = hex.vacant_parcel_count ?? 0;
-  const lotSuffix = lots > 0 ? ` ${lots} vacant lot${lots !== 1 ? "s" : ""} available.` : "";
+  const lotSuffix =
+    lots > 0 ? ` ${lots} vacant lot${lots !== 1 ? "s" : ""} available.` : "";
   const t = hex.transit_label;
   if (hex.label === "prime") {
     return t === "Transit Hub"
@@ -84,37 +90,43 @@ function zoningBadgeStyle(signal: HexFeatureProperties["zoning_pbsh_signal"]): {
   dot: string;
 } {
   switch (signal) {
-    case "positive":    return { bg: "#dcfce7", text: "#15803d", dot: "#22c55e" };
-    case "neutral":     return { bg: "#fef9c3", text: "#854d0e", dot: "#eab308" };
-    case "restrictive": return { bg: "#ffedd5", text: "#9a3412", dot: "#f97316" };
-    case "constrained": return { bg: "#f4f4f5", text: "#52525b", dot: "#a1a1aa" };
-    case "negative":    return { bg: "#fee2e2", text: "#991b1b", dot: "#ef4444" };
-    default:            return { bg: "#f4f4f5", text: "#71717a", dot: "#a1a1aa" };
+    case "positive":
+      return { bg: "#dcfce7", text: "#15803d", dot: "#22c55e" };
+    case "neutral":
+      return { bg: "#fef9c3", text: "#854d0e", dot: "#eab308" };
+    case "restrictive":
+      return { bg: "#ffedd5", text: "#9a3412", dot: "#f97316" };
+    case "constrained":
+      return { bg: "#f4f4f5", text: "#52525b", dot: "#a1a1aa" };
+    case "negative":
+      return { bg: "#fee2e2", text: "#991b1b", dot: "#ef4444" };
+    default:
+      return { bg: "#f4f4f5", text: "#71717a", dot: "#a1a1aa" };
   }
 }
 
 const ZONING_SIGNAL_LABEL: Record<string, string> = {
-  positive:    "By-right PBSH",
-  neutral:     "Conditional",
+  positive: "By-right PBSH",
+  neutral: "Conditional",
   restrictive: "Rezoning required",
   constrained: "Institutional",
-  negative:    "Not residential",
+  negative: "Not residential",
 };
 
 const OPPORTUNITY_LABEL: Record<string, string> = {
-  protected:      "Protected land",
-  campus:         "Campus land",
-  developed:      "Developed area",
-  constrained:    "Terrain constraints",
+  protected: "Protected land",
+  campus: "Campus land",
+  developed: "Developed area",
+  constrained: "Terrain constraints",
   zoning_blocked: "Zoning blocked",
-  prime:          "Prime site",
-  opportunity:    "Development opportunity",
-  emerging:       "Emerging area",
-  open_land:      "Open land",
+  prime: "Prime site",
+  opportunity: "Development opportunity",
+  emerging: "Emerging area",
+  open_land: "Open land",
   // Legacy
-  high:           "Strong opportunity",
-  medium:         "Emerging market",
-  low:            "Open land",
+  high: "Strong opportunity",
+  medium: "Emerging market",
+  low: "Open land",
 };
 
 function opportunityLabel(hex: HexFeatureProperties): string {
@@ -128,15 +140,19 @@ type NormalizedStatus =
   | "Likely non-buildable (water/land-use constraints)"
   | "Potentially buildable";
 
-function normalizeDevelopmentStatus(hex: HexFeatureProperties): NormalizedStatus {
+function normalizeDevelopmentStatus(
+  hex: HexFeatureProperties,
+): NormalizedStatus {
   const status = hex.development_status;
   if (status === "Hard non-buildable") return status;
   if (status === "On-campus constrained") return status;
   if (status === "Already developed (infill/redevelopment only)") return status;
-  if (status === "Likely non-buildable (water/land-use constraints)") return status;
+  if (status === "Likely non-buildable (water/land-use constraints)")
+    return status;
   if (status === "Potentially buildable") return status;
   if (hex.on_campus_constrained) return "On-campus constrained";
-  if (hex.already_developed_for_housing) return "Already developed (infill/redevelopment only)";
+  if (hex.already_developed_for_housing)
+    return "Already developed (infill/redevelopment only)";
   if (hex.buildable_for_housing === false) return "Hard non-buildable";
   return "Potentially buildable";
 }
@@ -159,7 +175,6 @@ function transitBadgeStyle(label: HexFeatureProperties["transit_label"]): {
   }
 }
 
-
 type LandParcelItem = NonNullable<HexFeatureProperties["land_parcels"]>[number];
 
 export function HexChoropleth({
@@ -177,7 +192,8 @@ export function HexChoropleth({
 }) {
   const map = useMap();
   const overlayRef = useRef<GoogleMapsOverlay | null>(null);
-  const [selectedHex, setSelectedHexLocal] = useState<HexFeatureProperties | null>(null);
+  const [selectedHex, setSelectedHexLocal] =
+    useState<HexFeatureProperties | null>(null);
   const setSelectedHex = (hex: HexFeatureProperties | null) => {
     setSelectedHexLocal(hex);
     onHexSelect?.(hex);
@@ -186,7 +202,8 @@ export function HexChoropleth({
   // Fast lookup: h3_index → properties
   const propsMap = useMemo(() => {
     const m = new Map<string, HexFeatureProperties>();
-    for (const f of hexData.features) m.set(f.properties.h3_index, f.properties);
+    for (const f of hexData.features)
+      m.set(f.properties.h3_index, f.properties);
     return m;
   }, [hexData]);
 
@@ -196,9 +213,9 @@ export function HexChoropleth({
       maxDistanceMiles == null
         ? hexData.features
         : hexData.features.filter(
-            (f) => f.properties.distance_to_campus_miles <= maxDistanceMiles
+            (f) => f.properties.distance_to_campus_miles <= maxDistanceMiles,
           ),
-    [hexData, maxDistanceMiles]
+    [hexData, maxDistanceMiles],
   );
 
   // ── deck.gl WebGL overlay — renders all hexes on the GPU ──
@@ -226,7 +243,8 @@ export function HexChoropleth({
       id: "hex-choropleth",
       data: filteredFeatures,
       getHexagon: (d) => d.properties.h3_index,
-      getFillColor: (d) => hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", 0.45),
+      getFillColor: (d) =>
+        hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", 0.45),
       filled: true,
       stroked: false,
       pickable: true,
@@ -253,7 +271,8 @@ export function HexChoropleth({
     ? normalizeDevelopmentStatus(selectedHex)
     : null;
   const constrained = normalizedStatus === "On-campus constrained";
-  const developed = normalizedStatus === "Already developed (infill/redevelopment only)";
+  const developed =
+    normalizedStatus === "Already developed (infill/redevelopment only)";
   const nonBuildable = normalizedStatus === "Hard non-buildable";
   const rawScore = selectedHex
     ? (selectedHex.raw_pressure_score ?? selectedHex.pressure_score)
@@ -262,10 +281,12 @@ export function HexChoropleth({
 
   return (
     <>
-
       {selectedHex && (
         <InfoWindow
-          position={{ lat: selectedHex.center_lat, lng: selectedHex.center_lng }}
+          position={{
+            lat: selectedHex.center_lat,
+            lng: selectedHex.center_lng,
+          }}
           onCloseClick={() => setSelectedHex(null)}
           headerDisabled={true}
         >
@@ -310,89 +331,128 @@ export function HexChoropleth({
             </p>
 
             {/* Land availability callout — shown above stats when present */}
-            {(selectedHex.vacant_parcel_count ?? 0) > 0 && selectedHex.land_parcels && (() => {
-              const parcels = selectedHex.land_parcels!;
-              const absenteeCount = parcels.filter(p => p.is_absentee).length;
-              const landValues = parcels.filter(p => p.land_value > 0).map(p => p.land_value);
-              const avgLandValue = landValues.length > 0
-                ? landValues.reduce((a, b) => a + b, 0) / landValues.length
-                : 0;
-              return (
-                <div
-                  className="mb-2.5 rounded-md p-2 border"
-                  style={{ background: "#fffbeb", borderColor: "#d97706" }}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] font-bold" style={{ color: "#92400e" }}>
-                      Land available nearby
-                    </span>
-                    <span
-                      className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                      style={{ background: "#d97706", color: "#fff" }}
-                    >
-                      {selectedHex.vacant_parcel_count} lot{selectedHex.vacant_parcel_count !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  {avgLandValue > 0 && (
-                    <div className="text-[10px] mb-1" style={{ color: "#78350f" }}>
-                      Avg land value: <span className="font-semibold">${(avgLandValue / 1000).toFixed(0)}k</span>
-                    </div>
-                  )}
-                  {absenteeCount > 0 && (
-                    <div className="text-[10px] mb-1.5" style={{ color: "#78350f" }}>
-                      <span className="font-semibold">{absenteeCount}</span> absentee owner{absenteeCount !== 1 ? "s" : ""} — potential off-market leads
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    {parcels.slice(0, 2).map((parcel, i) => (
-                      <div key={i} className="bg-white rounded p-1.5 text-[10px]" style={{ borderLeft: "2px solid #d97706" }}>
-                        <div className="font-medium text-zinc-800 truncate">
-                          {parcel.address || "Address not listed"}
-                        </div>
-                        <div className="flex justify-between mt-0.5 text-zinc-500">
-                          <span>
-                            {parcel.lot_size_acres > 0 ? `${parcel.lot_size_acres.toFixed(2)} ac` : parcel.land_use}
-                          </span>
-                          <span className="font-medium text-zinc-700">
-                            {parcel.land_value > 0
-                              ? `$${(parcel.land_value / 1000).toFixed(0)}k`
-                              : parcel.market_value > 0
-                              ? `$${(parcel.market_value / 1000).toFixed(0)}k`
-                              : "—"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between mt-0.5">
-                          <span className="text-zinc-400 truncate max-w-[130px]">{parcel.owner_name}</span>
-                          {parcel.is_absentee && (
-                            <span
-                              className="px-1 rounded text-[9px] font-semibold uppercase"
-                              style={{ background: "#fce7f3", color: "#9d174d" }}
-                            >
-                              Absentee
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {parcels.length > 2 && (
-                      <button
-                        onClick={() => {
-                          const label = `${selectedHex.vacant_parcel_count} lots near hex #${selectedHex.hex_number ?? ""}`;
-                          onViewAllParcels?.(parcels, label);
-                          setSelectedHex(null);
-                        }}
-                        className="w-full text-[10px] text-center py-1 rounded font-medium transition-colors"
-                        style={{ color: "#92400e", background: "#fef3c7" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#fde68a")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "#fef3c7")}
+            {(selectedHex.vacant_parcel_count ?? 0) > 0 &&
+              selectedHex.land_parcels &&
+              (() => {
+                const parcels = selectedHex.land_parcels!;
+                const absenteeCount = parcels.filter(
+                  (p) => p.is_absentee,
+                ).length;
+                const landValues = parcels
+                  .filter((p) => p.land_value > 0)
+                  .map((p) => p.land_value);
+                const avgLandValue =
+                  landValues.length > 0
+                    ? landValues.reduce((a, b) => a + b, 0) / landValues.length
+                    : 0;
+                return (
+                  <div
+                    className="mb-2.5 rounded-md p-2 border"
+                    style={{ background: "#fffbeb", borderColor: "#d97706" }}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span
+                        className="text-[11px] font-bold"
+                        style={{ color: "#92400e" }}
                       >
-                        +{parcels.length - 2} more lot{parcels.length - 2 !== 1 ? "s" : ""} — view all in sidebar →
-                      </button>
+                        Land available nearby
+                      </span>
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: "#d97706", color: "#fff" }}
+                      >
+                        {selectedHex.vacant_parcel_count} lot
+                        {selectedHex.vacant_parcel_count !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {avgLandValue > 0 && (
+                      <div
+                        className="text-[10px] mb-1"
+                        style={{ color: "#78350f" }}
+                      >
+                        Avg land value:{" "}
+                        <span className="font-semibold">
+                          ${(avgLandValue / 1000).toFixed(0)}k
+                        </span>
+                      </div>
                     )}
+                    {absenteeCount > 0 && (
+                      <div
+                        className="text-[10px] mb-1.5"
+                        style={{ color: "#78350f" }}
+                      >
+                        <span className="font-semibold">{absenteeCount}</span>{" "}
+                        absentee owner{absenteeCount !== 1 ? "s" : ""} —
+                        potential off-market leads
+                      </div>
+                    )}
+                    <div className="space-y-1">
+                      {parcels.slice(0, 2).map((parcel, i) => (
+                        <div
+                          key={i}
+                          className="bg-white rounded p-1.5 text-[10px]"
+                          style={{ borderLeft: "2px solid #d97706" }}
+                        >
+                          <div className="font-medium text-zinc-800 truncate">
+                            {parcel.address || "Address not listed"}
+                          </div>
+                          <div className="flex justify-between mt-0.5 text-zinc-500">
+                            <span>
+                              {parcel.lot_size_acres > 0
+                                ? `${parcel.lot_size_acres.toFixed(2)} ac`
+                                : parcel.land_use}
+                            </span>
+                            <span className="font-medium text-zinc-700">
+                              {parcel.land_value > 0
+                                ? `$${(parcel.land_value / 1000).toFixed(0)}k`
+                                : parcel.market_value > 0
+                                  ? `$${(parcel.market_value / 1000).toFixed(0)}k`
+                                  : "—"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between mt-0.5">
+                            <span className="text-zinc-400 truncate max-w-[130px]">
+                              {parcel.owner_name}
+                            </span>
+                            {parcel.is_absentee && (
+                              <span
+                                className="px-1 rounded text-[9px] font-semibold uppercase"
+                                style={{
+                                  background: "#fce7f3",
+                                  color: "#9d174d",
+                                }}
+                              >
+                                Absentee
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {parcels.length > 2 && (
+                        <button
+                          onClick={() => {
+                            const label = `${selectedHex.vacant_parcel_count} lots near hex #${selectedHex.hex_number ?? ""}`;
+                            onViewAllParcels?.(parcels, label);
+                            setSelectedHex(null);
+                          }}
+                          className="w-full text-[10px] text-center py-1 rounded font-medium transition-colors"
+                          style={{ color: "#92400e", background: "#fef3c7" }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.background = "#fde68a")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = "#fef3c7")
+                          }
+                        >
+                          +{parcels.length - 2} more lot
+                          {parcels.length - 2 !== 1 ? "s" : ""} — view all in
+                          sidebar →
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
             {/* PBSH operator detection (Option A — name matching on parcel data) */}
             {(() => {
@@ -405,15 +465,24 @@ export function HexChoropleth({
                   style={{ background: "#fef2f2", borderColor: "#f87171" }}
                 >
                   <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[10px] font-bold" style={{ color: "#991b1b" }}>
+                    <span
+                      className="text-[10px] font-bold"
+                      style={{ color: "#991b1b" }}
+                    >
                       Institutional land-banking detected
                     </span>
                   </div>
                   <div className="space-y-0.5">
                     {detected.map(({ operator, parcel_count }) => (
-                      <div key={operator} className="text-[10px]" style={{ color: "#7f1d1d" }}>
+                      <div
+                        key={operator}
+                        className="text-[10px]"
+                        style={{ color: "#7f1d1d" }}
+                      >
                         <span className="font-semibold">{operator}</span>
-                        {" — "}{parcel_count} parcel{parcel_count !== 1 ? "s" : ""} in tax records
+                        {" — "}
+                        {parcel_count} parcel{parcel_count !== 1 ? "s" : ""} in
+                        tax records
                       </div>
                     ))}
                   </div>
@@ -429,14 +498,17 @@ export function HexChoropleth({
               <div className="flex justify-between">
                 <span className="text-zinc-500">Distance</span>
                 <span className="font-medium text-zinc-800">
-                  {selectedHex.distance_to_campus_miles.toFixed(2)} mi from campus
+                  {selectedHex.distance_to_campus_miles.toFixed(2)} mi from
+                  campus
                 </span>
               </div>
 
               {(constrained || nonBuildable || developed) && rawScore > 0 && (
                 <div className="flex justify-between">
                   <span className="text-zinc-500">Underlying demand</span>
-                  <span className="font-medium text-zinc-800">{rawScore.toFixed(0)} / 100</span>
+                  <span className="font-medium text-zinc-800">
+                    {rawScore.toFixed(0)} / 100
+                  </span>
                 </div>
               )}
 
@@ -457,7 +529,9 @@ export function HexChoropleth({
                         className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
                         style={{ background: style.bg, color: style.text }}
                       >
-                        {selectedHex.transit_label} · {selectedHex.bus_stop_count} stop{selectedHex.bus_stop_count !== 1 ? "s" : ""}
+                        {selectedHex.transit_label} ·{" "}
+                        {selectedHex.bus_stop_count} stop
+                        {selectedHex.bus_stop_count !== 1 ? "s" : ""}
                       </span>
                     );
                   })()}
@@ -479,7 +553,9 @@ export function HexChoropleth({
                       {selectedHex.zoning_code}
                     </span>
                     {(() => {
-                      const style = zoningBadgeStyle(selectedHex.zoning_pbsh_signal);
+                      const style = zoningBadgeStyle(
+                        selectedHex.zoning_pbsh_signal,
+                      );
                       return (
                         <span
                           className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide flex items-center gap-1"
@@ -489,14 +565,15 @@ export function HexChoropleth({
                             className="w-1.5 h-1.5 rounded-full inline-block"
                             style={{ background: style.dot }}
                           />
-                          {ZONING_SIGNAL_LABEL[selectedHex.zoning_pbsh_signal ?? ""] ?? selectedHex.zoning_pbsh_signal}
+                          {ZONING_SIGNAL_LABEL[
+                            selectedHex.zoning_pbsh_signal ?? ""
+                          ] ?? selectedHex.zoning_pbsh_signal}
                         </span>
                       );
                     })()}
                   </span>
                 </div>
               )}
-
             </div>
           </div>
         </InfoWindow>

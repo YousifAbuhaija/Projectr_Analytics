@@ -1,14 +1,160 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-@keyframes markerIn {
-  from {
-    opacity: 0;
-    transform: scale(0.4) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+:root {
+  --bg: #0c0c0c;
+  --surface: #111111;
+  --surface-2: #181818;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.18);
+  --text: #f0f0f0;
+  --text-2: rgba(255, 255, 255, 0.5);
+  --text-3: rgba(255, 255, 255, 0.25);
+  --accent: #f0f0f0;
 }
 
+* {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Inter Tight", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+body {
+  background: var(--bg);
+}
+
+/* ── Thin scrollbar ──────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* ── QuantumLab card ─────────────────────────────── */
+.card-quantum {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+.card-quantum::before,
+.card-quantum::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* top-left white glow */
+.card-quantum::before {
+  width: 160px;
+  height: 160px;
+  top: -60px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06), transparent 70%);
+}
+
+/* bottom-right white glow */
+.card-quantum::after {
+  width: 160px;
+  height: 160px;
+  bottom: -60px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.03), transparent 70%);
+}
+
+.card-quantum > * { position: relative; z-index: 1; }
+
+/* ── QuantumLab primary button ───────────────────── */
+/* White bg, dark text, dark square icon with arrow  */
+.btn-ql {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 9px 9px 18px;
+  border-radius: 8px;
+  font-family: "Inter Tight", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  border: none;
+  white-space: nowrap;
+}
+
+.btn-ql:hover { opacity: 0.85; }
+
+/* Primary: white fill */
+.btn-ql-primary {
+  background: #f0f0f0;
+  color: #111111;
+}
+
+.btn-ql-primary .btn-icon {
+  width: 28px;
+  height: 28px;
+  background: #111111;
+  color: #f0f0f0;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Secondary: transparent, white border */
+.btn-ql-secondary {
+  background: transparent;
+  color: #f0f0f0;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.btn-ql-secondary .btn-icon {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-ql-secondary:hover .btn-icon {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f0f0f0;
+}
+
+/* Active/filled secondary */
+.btn-ql-active {
+  background: #f0f0f0;
+  color: #111111;
+  border: 1px solid transparent !important;
+}
+
+.btn-ql-active .btn-icon {
+  width: 28px;
+  height: 28px;
+  background: #111111;
+  color: #f0f0f0;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+@keyframes markerIn {
+  from { opacity: 0; transform: scale(0.4) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}

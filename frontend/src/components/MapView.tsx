@@ -7,7 +7,15 @@ import {
   useMap,
   Polygon,
 } from "@vis.gl/react-google-maps";
-import { Crosshair, Globe, Plus, Minus, SlidersHorizontal, X, ChevronDown } from "lucide-react";
+import {
+  Crosshair,
+  Globe,
+  Plus,
+  Minus,
+  SlidersHorizontal,
+  X,
+  ChevronDown,
+} from "lucide-react";
 import { HexChoropleth } from "./HexChoropleth";
 import { UNIVERSITIES } from "../lib/universityList";
 import type { UniversitySuggestion } from "../lib/universityList";
@@ -16,7 +24,7 @@ import type { HexGeoJSON } from "../lib/hexApi";
 
 /** Merge static list + dynamic pins, deduplicated by name. */
 function mergeUniversities(
-  dynamic: Record<string, UniversitySuggestion>
+  dynamic: Record<string, UniversitySuggestion>,
 ): UniversitySuggestion[] {
   const staticNames = new Set(UNIVERSITIES.map((u) => u.name));
   const extras = Object.values(dynamic).filter((d) => !staticNames.has(d.name));
@@ -40,12 +48,12 @@ const US_BOUNDS = {
 
 function isValidLatLng(lat: number, lng: number): boolean {
   return (
-    Number.isFinite(lat)
-    && Number.isFinite(lng)
-    && lat >= -90
-    && lat <= 90
-    && lng >= -180
-    && lng <= 180
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
   );
 }
 
@@ -60,7 +68,7 @@ function normalizeSchoolName(name: string): string {
 function getTargetPosition(
   name: string,
   scoreCache: Record<string, HousingPressureScore>,
-  dynamicUnis: Record<string, UniversitySuggestion>
+  dynamicUnis: Record<string, UniversitySuggestion>,
 ): { lat: number; lng: number } | null {
   // Prefer known pin coordinates first so stale score-cache entries cannot
   // send camera moves to an incorrect fallback location.
@@ -75,7 +83,10 @@ function getTargetPosition(
   }
 
   const computed = scoreCache[name];
-  if (computed && isValidLatLng(computed.university.lat, computed.university.lon)) {
+  if (
+    computed &&
+    isValidLatLng(computed.university.lat, computed.university.lon)
+  ) {
     return { lat: computed.university.lat, lng: computed.university.lon };
   }
 
@@ -84,8 +95,8 @@ function getTargetPosition(
   const normalizedTarget = normalizeSchoolName(name);
   for (const uni of Object.values(dynamicUnis)) {
     if (
-      normalizeSchoolName(uni.name) === normalizedTarget
-      && isValidLatLng(uni.lat, uni.lon)
+      normalizeSchoolName(uni.name) === normalizedTarget &&
+      isValidLatLng(uni.lat, uni.lon)
     ) {
       return { lat: uni.lat, lng: uni.lon };
     }
@@ -93,8 +104,8 @@ function getTargetPosition(
 
   for (const uni of UNIVERSITIES) {
     if (
-      normalizeSchoolName(uni.name) === normalizedTarget
-      && isValidLatLng(uni.lat, uni.lon)
+      normalizeSchoolName(uni.name) === normalizedTarget &&
+      isValidLatLng(uni.lat, uni.lon)
     ) {
       return { lat: uni.lat, lng: uni.lon };
     }
@@ -103,8 +114,8 @@ function getTargetPosition(
   for (const value of Object.values(scoreCache)) {
     const uni = value.university;
     if (
-      normalizeSchoolName(uni.name) === normalizedTarget
-      && isValidLatLng(uni.lat, uni.lon)
+      normalizeSchoolName(uni.name) === normalizedTarget &&
+      isValidLatLng(uni.lat, uni.lon)
     ) {
       return { lat: uni.lat, lng: uni.lon };
     }
@@ -147,9 +158,9 @@ const LOGO_OVERRIDES: Record<string, string> = {
 // Per-domain background tint behind transparent logos. Falls back to white
 // for any school not listed.
 const LOGO_BG: Record<string, string> = {
-  "wsu.edu": "#981e32",   // WSU crimson
-  "utah.edu": "#cc0000",  // Utah red
-  "colostate.edu": "#1E4D2B",  // CSU green
+  "wsu.edu": "#981e32", // WSU crimson
+  "utah.edu": "#cc0000", // Utah red
+  "colostate.edu": "#1E4D2B", // CSU green
 };
 
 function LogoPin({ uni, borderColor, scale }: LogoPinProps) {
@@ -169,7 +180,10 @@ function LogoPin({ uni, borderColor, scale }: LogoPinProps) {
   // Initials fallback
   const initials = uni.name
     .split(/[\s\-&]+/)
-    .filter((w) => !["of", "the", "at", "and", "for", "in", "a"].includes(w.toLowerCase()))
+    .filter(
+      (w) =>
+        !["of", "the", "at", "and", "for", "in", "a"].includes(w.toLowerCase()),
+    )
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
     .join("");
@@ -264,16 +278,22 @@ function CameraController({
       return;
     }
 
-    const target = (
+    const target =
       selectedCoords && isValidLatLng(selectedCoords.lat, selectedCoords.lng)
-    )
-      ? selectedCoords
-      : getTargetPosition(selectedName, scoreCache, dynamicUnis);
+        ? selectedCoords
+        : getTargetPosition(selectedName, scoreCache, dynamicUnis);
 
     if (target) {
       map.moveCamera({ center: target, zoom: CAMPUS_ZOOM });
     }
-  }, [map, selectedName, selectedCoords, scoreCache, dynamicUnis, forceNational]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    map,
+    selectedName,
+    selectedCoords,
+    scoreCache,
+    dynamicUnis,
+    forceNational,
+  ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 }
@@ -305,11 +325,10 @@ function RecenterButton({
       map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM });
       return;
     }
-    const target = (
+    const target =
       selectedCoords && isValidLatLng(selectedCoords.lat, selectedCoords.lng)
-    )
-      ? selectedCoords
-      : getTargetPosition(selectedName, scoreCache, dynamicUnis);
+        ? selectedCoords
+        : getTargetPosition(selectedName, scoreCache, dynamicUnis);
     if (target) {
       onReturnToCampus?.();
       map.moveCamera({ center: target, zoom: CAMPUS_ZOOM });
@@ -332,19 +351,33 @@ function RecenterButton({
   return (
     <MapControl position={ControlPosition.RIGHT_BOTTOM}>
       <div className="mb-3 mr-3 flex flex-col gap-2">
-        <button className={btnClass} onClick={() => map?.setZoom((map.getZoom() ?? 10) + 1)} title="Zoom in">
+        <button
+          className={btnClass}
+          onClick={() => map?.setZoom((map.getZoom() ?? 10) + 1)}
+          title="Zoom in"
+        >
           <Plus className="w-4 h-4" />
         </button>
-        <button className={btnClass} onClick={() => map?.setZoom((map.getZoom() ?? 10) - 1)} title="Zoom out">
+        <button
+          className={btnClass}
+          onClick={() => map?.setZoom((map.getZoom() ?? 10) - 1)}
+          title="Zoom out"
+        >
           <Minus className="w-4 h-4" />
         </button>
-        <button className={btnClass} onClick={handleZoomOut} title="Zoom out to national view">
+        <button
+          className={btnClass}
+          onClick={handleZoomOut}
+          title="Zoom out to national view"
+        >
           <Globe className="w-4 h-4" />
         </button>
         <button
           className={btnClass}
           onClick={handleClick}
-          title={selectedName ? "Re-center on campus" : "Re-center national view"}
+          title={
+            selectedName ? "Re-center on campus" : "Re-center national view"
+          }
         >
           <Crosshair className="w-4 h-4" />
         </button>
@@ -355,7 +388,11 @@ function RecenterButton({
 
 // ── ZoomTracker ───────────────────────────────────────────────────────────────
 
-function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void }) {
+function ZoomTracker({
+  onZoomChange,
+}: {
+  onZoomChange: (zoom: number) => void;
+}) {
   const map = useMap();
   useEffect(() => {
     if (!map) return;
@@ -363,7 +400,10 @@ function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void })
     // zoom_changed fires on manual zoom; idle fires after moveCamera() settles
     const l1 = map.addListener("zoom_changed", update);
     const l2 = map.addListener("idle", update);
-    return () => { l1.remove(); l2.remove(); };
+    return () => {
+      l1.remove();
+      l2.remove();
+    };
   }, [map, onZoomChange]);
   return null;
 }
@@ -374,11 +414,15 @@ function ZoomTracker({ onZoomChange }: { onZoomChange: (zoom: number) => void })
 
 type LatLngLit = { lat: number; lng: number };
 
-function buildLoadingHexes(centerLat: number, centerLng: number, rings = 4): LatLngLit[][] {
+function buildLoadingHexes(
+  centerLat: number,
+  centerLng: number,
+  rings = 4,
+): LatLngLit[][] {
   // H3 resolution-9 approximate dimensions
   const edgeM = 174; // metres per edge
   const hexW = edgeM * Math.sqrt(3); // pointy-top: point-to-point width
-  const hexH = edgeM * 2;            // pointy-top: flat-to-flat height
+  const hexH = edgeM * 2; // pointy-top: flat-to-flat height
 
   const latPerM = 1 / 111_000;
   const lngPerM = 1 / (111_000 * Math.cos((centerLat * Math.PI) / 180));
@@ -468,10 +512,14 @@ interface MapFilterPanelProps {
 
 function MapFilterPanel({
   allStates,
-  filterState, setFilterState,
-  filterScore, setFilterScore,
-  filterType, setFilterType,
-  filteredCount, totalCount,
+  filterState,
+  setFilterState,
+  filterScore,
+  setFilterScore,
+  filterType,
+  setFilterType,
+  filteredCount,
+  totalCount,
 }: MapFilterPanelProps) {
   const [open, setOpen] = useState(false);
 
@@ -488,8 +536,7 @@ function MapFilterPanel({
 
   const btnBase =
     "px-2.5 py-1 rounded-lg text-xs font-medium transition-all border ";
-  const btnActive =
-    "bg-blue-600 border-blue-500 text-white";
+  const btnActive = "bg-blue-600 border-blue-500 text-white";
   const btnInactive =
     "bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200";
 
@@ -514,7 +561,9 @@ function MapFilterPanel({
           </span>
         )}
         <ChevronDown
-          className={"w-3 h-3 ml-0.5 transition-transform " + (open ? "rotate-180" : "")}
+          className={
+            "w-3 h-3 ml-0.5 transition-transform " + (open ? "rotate-180" : "")
+          }
         />
       </button>
 
@@ -539,7 +588,9 @@ function MapFilterPanel({
                 <button
                   key={val}
                   onClick={() => setFilterScore(val)}
-                  className={btnBase + (filterScore === val ? btnActive : btnInactive)}
+                  className={
+                    btnBase + (filterScore === val ? btnActive : btnInactive)
+                  }
                 >
                   {label}
                 </button>
@@ -561,7 +612,9 @@ function MapFilterPanel({
                 <button
                   key={String(val)}
                   onClick={() => setFilterType(val as string | null)}
-                  className={btnBase + (filterType === val ? btnActive : btnInactive)}
+                  className={
+                    btnBase + (filterType === val ? btnActive : btnInactive)
+                  }
                 >
                   {label}
                 </button>
@@ -635,8 +688,22 @@ interface MapViewProps {
   onZoomChange?: (zoom: number) => void;
   onHoverPrefetch?: (name: string) => void;
   isHexLoading?: boolean;
-  onViewAllParcels?: (parcels: { address: string; lot_size_acres: number; land_value: number; market_value: number; owner_name: string; is_absentee: boolean; land_use: string; parcel_type: string }[], label: string) => void;
-  onHexSelect?: (hex: import("../lib/hexApi").HexFeatureProperties | null) => void;
+  onViewAllParcels?: (
+    parcels: {
+      address: string;
+      lot_size_acres: number;
+      land_value: number;
+      market_value: number;
+      owner_name: string;
+      is_absentee: boolean;
+      land_use: string;
+      parcel_type: string;
+    }[],
+    label: string,
+  ) => void;
+  onHexSelect?: (
+    hex: import("../lib/hexApi").HexFeatureProperties | null,
+  ) => void;
   focusHexId?: string | null;
 }
 
@@ -671,7 +738,7 @@ export function MapView({
   // Sorted unique states across all universities
   const allStates = useMemo(
     () => [...new Set(allUniversities.map((u) => u.state))].sort(),
-    [allUniversities]
+    [allUniversities],
   );
 
   // Apply filters
@@ -680,7 +747,8 @@ export function MapView({
       // State filter
       if (filterState && uni.state !== filterState) return false;
       // School type filter
-      if (filterType && (uni.school_type ?? "Mid-Major") !== filterType) return false;
+      if (filterType && (uni.school_type ?? "Mid-Major") !== filterType)
+        return false;
       // Score filter — always show the selected school regardless
       if (filterScore !== "all" && uni.name !== selectedName) {
         const computed = scoreCache[uni.name];
@@ -689,18 +757,32 @@ export function MapView({
         } else {
           if (!computed) return false;
           if (filterScore === "high" && computed.score < 70) return false;
-          if (filterScore === "mid" && (computed.score < 40 || computed.score >= 70)) return false;
+          if (
+            filterScore === "mid" &&
+            (computed.score < 40 || computed.score >= 70)
+          )
+            return false;
           if (filterScore === "low" && computed.score >= 40) return false;
         }
       }
       return true;
     });
-  }, [allUniversities, filterState, filterScore, filterType, scoreCache, selectedName]);
+  }, [
+    allUniversities,
+    filterState,
+    filterScore,
+    filterType,
+    scoreCache,
+    selectedName,
+  ]);
 
-  const handleZoomUpdate = useCallback((z: number) => {
-    setLocalZoom(z);
-    onZoomChange?.(z);
-  }, [onZoomChange]);
+  const handleZoomUpdate = useCallback(
+    (z: number) => {
+      setLocalZoom(z);
+      onZoomChange?.(z);
+    },
+    [onZoomChange],
+  );
 
   useEffect(() => {
     if (selectedName) setForceNational(false);
@@ -742,7 +824,13 @@ export function MapView({
           <HexLoadingGrid lat={selectedCoords.lat} lng={selectedCoords.lng} />
         )}
         {activeHexData && (
-          <HexChoropleth hexData={activeHexData} maxDistanceMiles={hexRadiusMiles} onViewAllParcels={onViewAllParcels} onHexSelect={onHexSelect} focusHexId={focusHexId} />
+          <HexChoropleth
+            hexData={activeHexData}
+            maxDistanceMiles={hexRadiusMiles}
+            onViewAllParcels={onViewAllParcels}
+            onHexSelect={onHexSelect}
+            focusHexId={focusHexId}
+          />
         )}
 
         {filteredUniversities.map((uni, i) => {
@@ -753,8 +841,8 @@ export function MapView({
           const borderColor = computed
             ? SCORE_COLOR(computed.score)
             : isSelected
-            ? "#3b82f6"
-            : "#71717a";
+              ? "#3b82f6"
+              : "#71717a";
 
           const scale = isSelected ? 1.45 : isHovered ? 1.2 : 1.0;
 
@@ -768,7 +856,10 @@ export function MapView({
               }}
               onMouseEnter={() => {
                 setHoveredName(uni.name);
-                hoverTimerRef.current = setTimeout(() => onHoverPrefetch?.(uni.name), 300);
+                hoverTimerRef.current = setTimeout(
+                  () => onHoverPrefetch?.(uni.name),
+                  300,
+                );
               }}
               onMouseLeave={() => {
                 setHoveredName(null);
@@ -784,7 +875,8 @@ export function MapView({
               <div
                 style={{
                   animationDelay: `${i * 30}ms`,
-                  animation: "markerIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards",
+                  animation:
+                    "markerIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards",
                   opacity: 0,
                 }}
               >
@@ -803,17 +895,29 @@ export function MapView({
                   visibility: isHovered ? "visible" : "hidden",
                 }}
               >
-                <p className="text-xs font-semibold text-white leading-tight">{uni.name}</p>
-                <p className="text-xs text-zinc-400 mt-0.5">{uni.city}, {uni.state}</p>
+                <p className="text-xs font-semibold text-white leading-tight">
+                  {uni.name}
+                </p>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {uni.city}, {uni.state}
+                </p>
                 {computed ? (
                   <div className="flex items-center gap-1.5 mt-1.5">
-                    <div className="w-2 h-2 rounded-full" style={{ background: SCORE_COLOR(computed.score) }} />
-                    <span className="text-xs font-medium" style={{ color: SCORE_COLOR(computed.score) }}>
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: SCORE_COLOR(computed.score) }}
+                    />
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: SCORE_COLOR(computed.score) }}
+                    >
                       {computed.score.toFixed(0)}/100
                     </span>
                   </div>
                 ) : (
-                  <p className="text-xs text-blue-400 mt-1.5">Click to view →</p>
+                  <p className="text-xs text-blue-400 mt-1.5">
+                    Click to view →
+                  </p>
                 )}
               </div>
             </AdvancedMarker>
@@ -837,7 +941,8 @@ export function MapView({
         {activeHexData && (
           <div className="bg-zinc-950/90 backdrop-blur-sm border border-zinc-800 rounded-xl p-3 shadow-lg">
             <label className="text-xs text-zinc-400 font-medium block mb-1.5">
-              Radius: <span className="text-white">{hexRadiusMiles.toFixed(1)} mi</span>
+              Radius:{" "}
+              <span className="text-white">{hexRadiusMiles.toFixed(1)} mi</span>
             </label>
             <input
               type="range"
@@ -872,13 +977,23 @@ export function MapView({
               ["Zoning blocked", "#b45309"],
             ].map(([label, color]) => (
               <div key={label} className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
-                <span className="text-[10px] text-zinc-400 whitespace-nowrap">{label}</span>
+                <div
+                  className="w-2 h-2 rounded-sm shrink-0"
+                  style={{ background: color }}
+                />
+                <span className="text-[10px] text-zinc-400 whitespace-nowrap">
+                  {label}
+                </span>
               </div>
             ))}
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-sm border shrink-0" style={{ borderColor: "#d97706", background: "transparent" }} />
-              <span className="text-[10px] text-zinc-400 whitespace-nowrap">Land avail.</span>
+              <div
+                className="w-2 h-2 rounded-sm border shrink-0"
+                style={{ borderColor: "#d97706", background: "transparent" }}
+              />
+              <span className="text-[10px] text-zinc-400 whitespace-nowrap">
+                Land avail.
+              </span>
             </div>
           </div>
         ) : (

@@ -200,7 +200,7 @@ const KNOWN: Record<string, string> = {
 function normalize(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[,.\-–—]/g, " ")   // commas, dashes → space
+    .replace(/[,.\-–—]/g, " ") // commas, dashes → space
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -208,19 +208,24 @@ function normalize(name: string): string {
 // ── Fallback inference ────────────────────────────────────────────────────────
 
 const STOP = new Set(["of", "the", "and", "at", "in", "for", "a", "an"]);
-const GENERIC_STARTS = new Set(["university", "college", "institute", "school"]);
+const GENERIC_STARTS = new Set([
+  "university",
+  "college",
+  "institute",
+  "school",
+]);
 
 function inferAbbrev(name: string): string {
   const words = normalize(name).split(" ").filter(Boolean);
   if (words.length === 0) return name.slice(0, 4).toUpperCase();
 
-  const significant = words.filter(w => !STOP.has(w));
+  const significant = words.filter((w) => !STOP.has(w));
 
   // "University/College/Institute of X Y Z" → initials of X Y Z prefixed by U/C/I
   if (GENERIC_STARTS.has(significant[0]) && significant[1] !== undefined) {
-    const rest = significant.slice(1).filter(w => !STOP.has(w));
+    const rest = significant.slice(1).filter((w) => !STOP.has(w));
     if (rest.length === 0) return significant[0].slice(0, 4).toUpperCase();
-    const initials = rest.map(w => w[0].toUpperCase()).join("");
+    const initials = rest.map((w) => w[0].toUpperCase()).join("");
     // Prefix with first letter of institution type only if 2+ remaining words
     return rest.length >= 2 ? initials.slice(0, 5) : rest[0].slice(0, 6);
   }
@@ -233,7 +238,10 @@ function inferAbbrev(name: string): string {
   }
 
   // Fallback: initials of all significant words
-  return significant.map(w => w[0].toUpperCase()).join("").slice(0, 5);
+  return significant
+    .map((w) => w[0].toUpperCase())
+    .join("")
+    .slice(0, 5);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

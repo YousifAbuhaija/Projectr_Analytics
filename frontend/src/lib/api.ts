@@ -146,23 +146,27 @@ export async function fetchUniversities(): Promise<UniversityListItem[]> {
   return res.json();
 }
 
-export async function computeScore(name: string): Promise<HousingPressureScore> {
+export async function computeScore(
+  name: string,
+): Promise<HousingPressureScore> {
   const res = await fetch(`${API_BASE}/score`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ university_name: name })
+    body: JSON.stringify({ university_name: name }),
   });
-  
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || "Failed to compute score");
   return data;
 }
 
-export async function computeScoreById(unitid: number): Promise<HousingPressureScore> {
+export async function computeScoreById(
+  unitid: number,
+): Promise<HousingPressureScore> {
   const res = await fetch(`${API_BASE}/score`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ unitid })
+    body: JSON.stringify({ unitid }),
   });
 
   const data = await res.json();

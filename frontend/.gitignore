@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # UI Inspo
-ui_design_inspo.html
+ui_design_inspo*

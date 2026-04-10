@@ -5,7 +5,19 @@ export interface HexFeatureProperties {
   h3_index: string;
   pressure_score: number;
   raw_pressure_score?: number;
-  label: "protected" | "campus" | "developed" | "constrained" | "zoning_blocked" | "prime" | "opportunity" | "emerging" | "open_land" | "high" | "medium" | "low";
+  label:
+    | "protected"
+    | "campus"
+    | "developed"
+    | "constrained"
+    | "zoning_blocked"
+    | "prime"
+    | "opportunity"
+    | "emerging"
+    | "open_land"
+    | "high"
+    | "medium"
+    | "low";
   distance_km: number;
   distance_to_campus_miles: number;
   permit_density: number;
@@ -62,7 +74,13 @@ export interface HexFeatureProperties {
   center_lng: number;
   zoning_code?: string | null;
   zoning_label?: string | null;
-  zoning_pbsh_signal?: "positive" | "neutral" | "restrictive" | "constrained" | "negative" | null;
+  zoning_pbsh_signal?:
+    | "positive"
+    | "neutral"
+    | "restrictive"
+    | "constrained"
+    | "negative"
+    | null;
   vacant_parcel_count?: number;
   land_parcels?: Array<{
     address: string;
@@ -114,10 +132,10 @@ export async function fetchHexGrid(
   radiusMiles = 1.5,
   hexResolution = 9,
   autoRadius = true,
-  debugHex = false
+  debugHex = false,
 ): Promise<HexGeoJSON> {
   const res = await fetch(
-    `${API_BASE}/hex/${encodeURIComponent(name)}?radius_miles=${radiusMiles}&hex_resolution=${hexResolution}&auto_radius=${autoRadius}&debug_hex=${debugHex}`
+    `${API_BASE}/hex/${encodeURIComponent(name)}?radius_miles=${radiusMiles}&hex_resolution=${hexResolution}&auto_radius=${autoRadius}&debug_hex=${debugHex}`,
   );
   if (!res.ok) throw new Error("Hex grid fetch failed");
   return res.json();
@@ -142,10 +160,10 @@ export async function* streamHexGrid(
   radiusMiles = 1.5,
   hexResolution = 9,
   autoRadius = true,
-  debugHex = false
+  debugHex = false,
 ): AsyncGenerator<HexStreamEvent> {
   const res = await fetch(
-    `${API_BASE}/hex/stream/${encodeURIComponent(name)}?radius_miles=${radiusMiles}&hex_resolution=${hexResolution}&auto_radius=${autoRadius}&debug_hex=${debugHex}`
+    `${API_BASE}/hex/stream/${encodeURIComponent(name)}?radius_miles=${radiusMiles}&hex_resolution=${hexResolution}&auto_radius=${autoRadius}&debug_hex=${debugHex}`,
   );
   if (!res.ok || !res.body) throw new Error("Hex stream fetch failed");
 

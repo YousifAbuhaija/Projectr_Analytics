@@ -1,26 +1,29 @@
 import { useState } from "react";
+import { MapPin } from "lucide-react";
 import { UNIVERSITIES } from "../lib/universityList";
 import type { UniversitySuggestion } from "../lib/universityList";
 
 function haversineDistMiles(
-  lat1: number, lon1: number,
-  lat2: number, lon2: number
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
 ): number {
   const R = 3958.8;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function findNearest(
   lat: number,
   lng: number,
-  extras: UniversitySuggestion[]
+  extras: UniversitySuggestion[],
 ): UniversitySuggestion | null {
   const all = [...UNIVERSITIES, ...extras];
   if (all.length === 0) return null;
@@ -50,7 +53,10 @@ export default function LocationButton({
   onSelectNearest,
   extraUniversities = [],
 }: {
-  onSelectNearest?: (name: string, coords: { lat: number; lng: number }) => void;
+  onSelectNearest?: (
+    name: string,
+    coords: { lat: number; lng: number },
+  ) => void;
   extraUniversities?: UniversitySuggestion[];
 }) {
   const [loading, setLoading] = useState(false);
@@ -73,16 +79,22 @@ export default function LocationButton({
   };
 
   return (
-    <div className="flex flex-col items-center gap-3 py-4">
+    <div className="flex flex-col items-center gap-3">
       <button
         onClick={handleClick}
         disabled={loading}
-        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700
-                   disabled:opacity-60 transition"
+        className="btn-ql btn-ql-primary disabled:opacity-50"
       >
-        {loading ? "Finding nearest university..." : "Find Nearest University"}
+        {loading ? "Locating..." : "Find Nearest University"}
+        <span className="btn-icon">
+          <MapPin className="w-3 h-3" />
+        </span>
       </button>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && (
+        <p className="text-xs" style={{ color: "rgba(248,113,113,0.9)" }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }

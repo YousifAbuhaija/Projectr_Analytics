@@ -80,11 +80,15 @@ export function readSplitCache<T>(bucketKey: string): Record<string, T> {
 }
 
 /** Write a single entry under `<bucketKey>::<entryKey>`. */
-export function writeSplitEntry<T>(bucketKey: string, entryKey: string, value: T): void {
+export function writeSplitEntry<T>(
+  bucketKey: string,
+  entryKey: string,
+  value: T,
+): void {
   try {
     localStorage.setItem(
       `${bucketKey}${SPLIT_SEP}${entryKey}`,
-      JSON.stringify({ data: value, savedAt: Date.now() } as Stamped<T>)
+      JSON.stringify({ data: value, savedAt: Date.now() } as Stamped<T>),
     );
   } catch {
     // Quota exceeded or private browsing — fail silently

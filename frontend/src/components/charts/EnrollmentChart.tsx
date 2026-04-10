@@ -18,8 +18,15 @@ export function EnrollmentChart({ data }: { data: EnrollmentTrend[] }) {
 
   return (
     <ResponsiveContainer width="100%" height={120}>
-      <LineChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+      <LineChart
+        data={chartData}
+        margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+      >
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="#27272a"
+          vertical={false}
+        />
         <XAxis
           dataKey="year"
           tick={{ fill: "#71717a", fontSize: 10 }}
@@ -35,7 +42,10 @@ export function EnrollmentChart({ data }: { data: EnrollmentTrend[] }) {
         />
         <Tooltip
           contentStyle={darkTooltipStyle}
-          formatter={(v) => [typeof v === "number" ? v.toLocaleString() : String(v), "Enrollment"]}
+          formatter={(v) => [
+            typeof v === "number" ? v.toLocaleString() : String(v),
+            "Enrollment",
+          ]}
         />
         <Line
           dataKey="enrollment"

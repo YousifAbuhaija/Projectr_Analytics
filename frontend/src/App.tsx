@@ -168,6 +168,8 @@ function App() {
 
   // Currently selected hex cell (clicked by user on map) — forwarded to chat
   const [selectedHexProps, setSelectedHexProps] = useState<HexFeatureProperties | null>(null);
+  // Hex ID to focus on the map (set by chat agent recommendations)
+  const [focusHexId, setFocusHexId] = useState<string | null>(null);
 
   // Land parcel detail panel — populated when user clicks "view all" in a hex popup
   const [activeLandParcels, setActiveLandParcels] = useState<{
@@ -722,6 +724,7 @@ function App() {
                 isHexLoading={selectedName ? hexLoadingNames.has(selectedName) : false}
                 onViewAllParcels={(parcels, label) => setActiveLandParcels({ parcels, label })}
                 onHexSelect={setSelectedHexProps}
+                focusHexId={focusHexId}
               />
             </APIProvider>
 
@@ -765,6 +768,7 @@ function App() {
                 selectedHexProps={selectedHexProps}
                 onUniversityScored={handleUniversityScored}
                 onExportJob={handleExportJob}
+                onSelectHex={(h3Id) => setFocusHexId(h3Id)}
               />
             )}
           </>

@@ -222,10 +222,8 @@ export function HexChoropleth({
       overlayRef.current?.setProps({ layers: [] });
       return;
     }
-    // Two layers: fills underneath, then outlines on top so borders aren't
-    // hidden by adjacent hex fills.
-    const fillLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
-      id: "hex-fill",
+    const hexLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
+      id: "hex-choropleth",
       data: filteredFeatures,
       getHexagon: (d) => d.properties.h3_index,
       getFillColor: (d) => hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", 0.45),
@@ -238,20 +236,7 @@ export function HexChoropleth({
       highPrecision: true,
       updateTriggers: { getFillColor: [hexData] },
     });
-    const outlineLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
-      id: "hex-outline",
-      data: filteredFeatures,
-      getHexagon: (d) => d.properties.h3_index,
-      filled: false,
-      stroked: true,
-      getLineColor: [0, 0, 0, 100],
-      getLineWidth: 1,
-      lineWidthUnits: "pixels",
-      lineWidthMinPixels: 1,
-      highPrecision: true,
-      pickable: false,
-    });
-    overlayRef.current.setProps({ layers: [fillLayer, outlineLayer] });
+    overlayRef.current.setProps({ layers: [hexLayer] });
   }, [filteredFeatures, hexData]);
 
   // External hex selection (e.g. from chat agent)

@@ -13,8 +13,6 @@ function hexToRgba(hex: string, opacity: number): [number, number, number, numbe
   return [r, g, b, Math.round(opacity * 255)];
 }
 
-const LAND_STROKE: [number, number, number, number] = [217, 119, 6, 230];
-const DEFAULT_STROKE: [number, number, number, number] = [9, 9, 11, 128];
 
 // Label-driven color palette. Each label gets a distinct, meaningful color.
 const LABEL_COLORS: Record<string, string> = {
@@ -230,12 +228,10 @@ export function HexChoropleth({
       getHexagon: (d) => d.properties.h3_index,
       getFillColor: (d) => {
         const label = d.properties.label;
-        const hasLand = (d.properties.vacant_parcel_count ?? 0) > 0;
-        return hexToRgba(LABEL_COLORS[label] ?? "#60a5fa", hasLand ? 0.55 : 0.42);
+        return hexToRgba(LABEL_COLORS[label] ?? "#60a5fa", 0.45);
       },
-      getLineColor: (d) =>
-        (d.properties.vacant_parcel_count ?? 0) > 0 ? LAND_STROKE : DEFAULT_STROKE,
-      getLineWidth: (d) => (d.properties.vacant_parcel_count ?? 0) > 0 ? 3 : 1,
+      getLineColor: [30, 30, 30, 160],
+      getLineWidth: 1,
       lineWidthUnits: "pixels",
       lineWidthMinPixels: 1,
       pickable: true,
@@ -247,7 +243,6 @@ export function HexChoropleth({
       stroked: true,
       updateTriggers: {
         getFillColor: [hexData],
-        getLineColor: [hexData],
       },
     });
     overlayRef.current.setProps({ layers: [hexLayer] });

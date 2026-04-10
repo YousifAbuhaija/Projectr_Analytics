@@ -31,7 +31,11 @@ dist/
 *.env
 secrets.json
 service_account.json
+trackrock-*.json
 
 # Data artifacts (downloaded at runtime, not committed)
 data/
 *.csv
+
+# Backend cache (now in Firestore)
+backend/cache/

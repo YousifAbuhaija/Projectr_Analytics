@@ -15,7 +15,7 @@ import type { HousingPressureScore, UniversityListItem } from "./lib/api";
 import type { HexGeoJSON } from "./lib/hexApi";
 
 const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-const CACHE_VERSION = "v9";
+const CACHE_VERSION = "v10";
 const SCORE_CACHE_KEY = `campuslens_scores_${CACHE_VERSION}`;
 const HEX_CACHE_KEY = `campuslens_hex_${CACHE_VERSION}`;
 const DYNAMIC_UNIS_CACHE_KEY = `campuslens_dynamic_unis_${CACHE_VERSION}`;
@@ -214,8 +214,11 @@ function App() {
       localStorage.removeItem("campuslens_scores_v8");
       localStorage.removeItem("campuslens_hex_v8");
       localStorage.removeItem("campuslens_dynamic_unis_v8");
-      // v9+ uses per-entry split keys for hex; purge any that exist for old versions
+      localStorage.removeItem("campuslens_scores_v9");
+      localStorage.removeItem("campuslens_hex_v9");
+      localStorage.removeItem("campuslens_dynamic_unis_v9");
       purgeSplitCache("campuslens_hex_v8");
+      purgeSplitCache("campuslens_hex_v9");
       localStorage.setItem(CACHE_SCHEMA_KEY, CACHE_VERSION);
     } catch {
       // Ignore storage failures in private mode.

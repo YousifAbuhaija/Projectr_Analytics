@@ -9,7 +9,6 @@ Endpoints:
   GET  /hex/stream/{university_name} — NDJSON streamed H3 hex chunks
 """
 
-import hashlib
 import json
 import math
 import os
@@ -43,11 +42,10 @@ from backend.adapters import (
     national_constraints,
     master_plans,
     occupancy_ordinances,
-    str_markets,
     zoning_gis,
     land_attom,
 )
-from backend.models.schemas import MasterPlanData, OccupancyOrdinance, STRMarket
+from backend.models.schemas import MasterPlanData, OccupancyOrdinance
 from backend.scoring.pressure import compute_pressure_score
 from backend.scoring.h3_hex import (
     generate_campus_hex_grid,
@@ -55,6 +53,7 @@ from backend.scoring.h3_hex import (
     to_geojson,
 )
 from backend.agent.gemini_agent import generate_gemini_summary, score_with_streaming, answer_chat_query
+from backend.db import firestore as db
 
 # ── Pre-scored cache ──
 _prescored: dict[int, HousingPressureScore] = {}
@@ -81,64 +80,23 @@ def _write_hex_debug_snapshot(university_name: str, payload: dict) -> str | None
         return None
 
 
-def _hex_disk_cache_path(cache_key: tuple) -> Path:
-    slug = hashlib.md5(str(cache_key).encode()).hexdigest()[:16]
-    return Path(config.cache_dir) / "hex" / f"{cache_key[0]}_{slug}.json"
-
-
-def _load_hex_disk_cache(cache_key: tuple) -> dict | None:
-    p = _hex_disk_cache_path(cache_key)
-    if not p.exists():
-        return None
-    try:
-        data = json.loads(p.read_text())
-        saved_at = datetime.fromisoformat(data.get("_cached_at", ""))
-        if (datetime.now(timezone.utc) - saved_at).days > 7:
-            return None  # stale OSM data, recompute
-        return data
-    except Exception:
-        return None
-
-
-def _write_hex_disk_cache(cache_key: tuple, geojson: dict) -> None:
-    p = _hex_disk_cache_path(cache_key)
-    try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        out = {
-            **geojson,
-            "_cached_at": datetime.now(timezone.utc).isoformat(),
-            "_cache_key": list(cache_key),
-        }
-        p.write_text(json.dumps(out), encoding="utf-8")
-    except Exception as exc:
-        print(f"[hex-disk-cache] write failed: {exc}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load pre-scored universities from cache on startup."""
-    cache_path = Path(config.cache_dir) / "prescored.json"
-    if cache_path.exists():
-        data = json.loads(cache_path.read_text())
-        for entry in data:
-            score = HousingPressureScore.model_validate(entry)
-            _prescored[score.university.unitid] = score
-        print(f"Loaded {len(_prescored)} pre-scored universities from cache.")
-    hex_cache_dir = Path(config.cache_dir) / "hex"
-    if hex_cache_dir.exists():
-        count = 0
-        for f in hex_cache_dir.glob("*.json"):
-            try:
-                entry_data = json.loads(f.read_text())
-                raw_key = entry_data.get("_cache_key")
-                if raw_key:
-                    hex_cache_key = tuple(raw_key)
-                    _hex_response_cache[hex_cache_key] = entry_data
-                    count += 1
-            except Exception:
-                pass
-        if count:
-            print(f"Warmed {count} hex grids from disk cache.")
+    """Load scored universities from Firestore on startup."""
+
+    if db.is_available():
+        fs_scores = await db.get_all_scores()
+        if fs_scores:
+            for uid, data in fs_scores.items():
+                _prescored[uid] = HousingPressureScore.model_validate(data)
+            print(f"Loaded {len(_prescored)} scores from Firestore.")
+        else:
+            print("[Firestore] scores collection empty — scores will be added on first analysis.")
+    else:
+        print("[Firestore] Not configured — scores will only persist in memory.")
+
     yield
 
 
@@ -160,12 +118,13 @@ app.add_middleware(
 
 @app.post("/chat")
 async def chat_with_agent(req: ChatRequest):
-    """Answers a chat query via Gemini 2.5 Flash."""
+    """Answers a chat query via Gemini 2.5 Flash with full DB access."""
     try:
         response_text = await answer_chat_query(
             messages=req.messages,
             uni_name=req.selectedName,
             active_score=req.activeScore,
+            all_scores=_prescored,
         )
         return {"response": response_text}
     except Exception as exc:
@@ -309,12 +268,6 @@ async def score_university(req: ScoreRequest):
     if occ_raw:
         occupancy_ordinance = OccupancyOrdinance(**occ_raw)
 
-    # ── Step 6h: Look up STR shadow supply market ──
-    str_market: STRMarket | None = None
-    str_raw = str_markets.get_str_market(uni.city, uni.state)
-    if str_raw:
-        str_market = STRMarket(**str_raw)
-
     # ── Step 7: Compute score ──
     result = compute_pressure_score(
         university=uni,
@@ -329,13 +282,15 @@ async def score_university(req: ScoreRequest):
         existing_housing=existing_housing,
         master_plan=master_plan,
         occupancy_ordinance=occupancy_ordinance,
-        str_market=str_market,
     )
 
     # ── Step 8: Gemini summary ──
     summary = await generate_gemini_summary(result)
     if summary:
         result = result.model_copy(update={"gemini_summary": summary})
+
+    # Persist to Firestore
+    await db.set_score(uni.unitid, json.loads(result.model_dump_json()))
 
     return result
 
@@ -585,10 +540,11 @@ async def get_hex_grid(
     )
     if cache_key in _hex_response_cache:
         return _hex_response_cache[cache_key]
-    disk_hit = _load_hex_disk_cache(cache_key)
-    if disk_hit:
-        _hex_response_cache[cache_key] = disk_hit
-        return disk_hit
+
+    fs_hit = await db.get_hex(cache_key)
+    if fs_hit:
+        _hex_response_cache[cache_key] = fs_hit
+        return fs_hit
 
     # ── Generate hex grid ──
     hex_indices = generate_campus_hex_grid(
@@ -678,7 +634,7 @@ async def get_hex_grid(
             geojson["metadata"]["debug_log_path"] = debug_path
             print(f"[/hex] Debug snapshot written: {debug_path}")
     _hex_response_cache[cache_key] = geojson
-    _write_hex_disk_cache(cache_key, geojson)
+    await db.set_hex(cache_key, geojson)
     return geojson
 
 

@@ -178,6 +178,10 @@ function App() {
   const isProcessingRef = useRef(false);
   const inflightHexLoadsRef = useRef<Set<string>>(new Set());
 
+  // ── Hex loading state ────────────────────────────────────────────────────────
+  const [hexLoadingNames, setHexLoadingNames] = useState<Set<string>>(new Set());
+  const [hexJustLoaded, setHexJustLoaded] = useState<string | null>(null);
+
   // Derived — what CompareSetupPanel needs
   const loadingName = reportQueue.find(j => j.status === "running")?.name ?? null;
 
@@ -271,6 +275,8 @@ function App() {
     const requestKey = `${queryName}::hex_r${resolution}::rad${radiusMiles.toFixed(2)}${debugHex ? "::dbg1" : ""}`;
     if (inflightHexLoadsRef.current.has(requestKey)) return;
     inflightHexLoadsRef.current.add(requestKey);
+    setHexLoadingNames(prev => new Set([...prev, queryName]));
+    setHexJustLoaded(null);
 
     try {
       if (clearTargetBeforeLoad) {
@@ -308,6 +314,13 @@ function App() {
       // keep side panel usable even if hex fetch fails
     } finally {
       inflightHexLoadsRef.current.delete(requestKey);
+      setHexLoadingNames(prev => {
+        const next = new Set(prev);
+        next.delete(queryName);
+        return next;
+      });
+      setHexJustLoaded(queryName);
+      setTimeout(() => setHexJustLoaded(prev => prev === queryName ? null : prev), 4000);
     }
   };
 
@@ -630,6 +643,7 @@ function App() {
                 onZoomOut={handleZoomOutMap}
                 onZoomChange={setMapZoom}
                 onHoverPrefetch={handleHoverPrefetch}
+                isHexLoading={selectedName ? hexLoadingNames.has(selectedName) : false}
               />
             </APIProvider>
 
@@ -666,6 +680,8 @@ function App() {
                 onViewReport={handleViewReport}
                 onSelectNearest={handleSelectUniversity}
                 extraUniversities={Object.values(dynamicUnis)}
+                hexLoadingName={selectedName && hexLoadingNames.has(selectedName) ? selectedName : null}
+                hexJustLoaded={hexJustLoaded}
               />
             )}
           </>

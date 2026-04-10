@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { ChevronDown, AlertCircle, CheckCircle2, ArrowRight, Grid3x3 } from "lucide-react";
 import { EmptyState } from "./panels/EmptyState";
 import { PreviewPanel } from "./panels/PreviewPanel";
 import { ScorePanel } from "./panels/ScorePanel";
@@ -9,6 +9,57 @@ import type { UniversitySuggestion } from "../lib/universityList";
 import type { LogEntry, ReportJob } from "../App";
 
 // ── QueueStatusBar ────────────────────────────────────────────────────────────
+
+// Pointy-top hex polygon for the mini sidebar icon (r=6)
+const MINI_HEX_PTS = "5.2,3 0,6 -5.2,3 -5.2,-3 0,-6 5.2,-3";
+const MINI_HEX_POSITIONS: [number, number][] = [
+  [0, 0], [12, 0], [6, 10.5], [-6, 10.5], [-12, 0], [-6, -10.5], [6, -10.5],
+];
+
+function HexLoadingBar({ name }: { name: string }) {
+  return (
+    <div className="border-b border-zinc-800 bg-zinc-900/70 backdrop-blur-sm flex-shrink-0">
+      <div className="flex items-center gap-2.5 px-4 py-2.5">
+        {/* Mini bouncing hex cluster */}
+        <svg width="22" height="20" viewBox="-14 -9 28 18" style={{ overflow: "visible", flexShrink: 0 }}>
+          {MINI_HEX_POSITIONS.slice(0, 3).map(([cx, cy], i) => (
+            <polygon
+              key={i}
+              points={MINI_HEX_PTS}
+              transform={`translate(${cx},${cy})`}
+              fill="rgba(59,130,246,0.3)"
+              stroke="rgba(96,165,250,0.7)"
+              strokeWidth="1"
+              style={{
+                animation: `hexBounce 1.1s ease-in-out infinite`,
+                animationDelay: `${i * 120}ms`,
+              }}
+            />
+          ))}
+        </svg>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-zinc-300 truncate">
+            Building hex grid:{" "}
+            <span className="text-white font-medium">{name}</span>
+          </p>
+          <p className="text-[11px] text-blue-400/70 leading-none mt-0.5">Computing…</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HexDoneBar({ name }: { name: string }) {
+  return (
+    <div className="mx-3 mt-3 flex items-center gap-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2.5 flex-shrink-0">
+      <Grid3x3 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-blue-300 truncate">{name}</p>
+        <p className="text-[11px] text-blue-400/60 leading-none mt-0.5">Hex grid ready</p>
+      </div>
+    </div>
+  );
+}
 
 function QueueStatusBar({
   activeJob,
@@ -186,6 +237,8 @@ interface SidePanelProps {
   onViewReport: (job: ReportJob) => void;
   onSelectNearest?: (name: string, coords: { lat: number; lng: number }) => void;
   extraUniversities?: UniversitySuggestion[];
+  hexLoadingName?: string | null;
+  hexJustLoaded?: string | null;
 }
 
 export function SidePanel({
@@ -201,6 +254,8 @@ export function SidePanel({
   onViewReport,
   onSelectNearest,
   extraUniversities,
+  hexLoadingName,
+  hexJustLoaded,
 }: SidePanelProps) {
   const [activeTab, setActiveTab] = useState<"data" | "chat">("data");
 
@@ -232,6 +287,10 @@ export function SidePanel({
       {/* Queue status bar — always on top, shows only when work is pending */}
       <div className={`transition-opacity duration-300 ${(activeTab === "data" || !selectedName) ? "opacity-100" : "opacity-0 pointer-events-none absolute"}`}>
         <QueueStatusBar activeJob={activeJob} queuedJobs={queuedJobs} />
+
+        {/* Hex loading / done bars */}
+        {hexLoadingName && <HexLoadingBar name={hexLoadingName} />}
+        {!hexLoadingName && hexJustLoaded && <HexDoneBar name={hexJustLoaded} />}
 
         {/* Done banners */}
         {doneJobs.map(job => (

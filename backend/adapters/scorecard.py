@@ -59,6 +59,7 @@ _ALIASES: dict[str, str] = {
     # Florida
     "uf": "University of Florida",
     "ufl": "University of Florida",
+    "university of florida": "University of Florida",
     # Penn State
     "psu": "Pennsylvania State University-Main Campus",
     "penn state": "Pennsylvania State University-Main Campus",
@@ -67,74 +68,153 @@ _ALIASES: dict[str, str] = {
     # Georgia Tech
     "gt": "Georgia Institute of Technology-Main Campus",
     "georgia tech": "Georgia Institute of Technology-Main Campus",
+    "georgia institute of technology": "Georgia Institute of Technology-Main Campus",
     # Virginia
     "vt": "Virginia Polytechnic Institute and State University",
     "vtech": "Virginia Polytechnic Institute and State University",
     "virginia tech": "Virginia Polytechnic Institute and State University",
     "uva": "University of Virginia-Main Campus",
+    "university of virginia": "University of Virginia-Main Campus",
     # Texas
     "ut": "The University of Texas at Austin",
     "ut austin": "The University of Texas at Austin",
     "texas": "The University of Texas at Austin",
+    "university of texas": "The University of Texas at Austin",
     "tamu": "Texas A & M University-College Station",
     "texas a&m": "Texas A & M University-College Station",
+    "texas a&m university": "Texas A & M University-College Station",
     # California
     "ucla": "University of California-Los Angeles",
     "ucb": "University of California-Berkeley",
     "berkeley": "University of California-Berkeley",
     "cal": "University of California-Berkeley",
     "usc": "University of Southern California",
+    "ucsd": "University of California-San Diego",
+    "ucsb": "University of California-Santa Barbara",
+    "uci": "University of California-Irvine",
+    "uc davis": "University of California-Davis",
     # Washington / PNW
     "uw": "University of Washington-Seattle Campus",
+    "university of washington": "University of Washington-Seattle Campus",
     "wsu": "Washington State University",
-    # Michigan / Midwest
+    # Michigan
     "umich": "University of Michigan-Ann Arbor",
+    "u of m": "University of Michigan-Ann Arbor",
     "michigan": "University of Michigan-Ann Arbor",
+    "university of michigan": "University of Michigan-Ann Arbor",
+    "u michigan": "University of Michigan-Ann Arbor",
+    "um": "University of Michigan-Ann Arbor",
     "msu": "Michigan State University",
+    "michigan state": "Michigan State University",
+    "michigan state university": "Michigan State University",
+    # Ohio
     "osu": "Ohio State University-Main Campus",
     "ohio state": "Ohio State University-Main Campus",
-    # Other
+    "ohio state university": "Ohio State University-Main Campus",
+    # Maryland
+    "umd": "University of Maryland-College Park",
+    "maryland": "University of Maryland-College Park",
+    "university of maryland": "University of Maryland-College Park",
+    "u of md": "University of Maryland-College Park",
+    "umbc": "University of Maryland-Baltimore County",
+    # Pittsburgh
+    "pitt": "University of Pittsburgh-Pittsburgh Campus",
+    "university of pittsburgh": "University of Pittsburgh-Pittsburgh Campus",
+    "upitt": "University of Pittsburgh-Pittsburgh Campus",
+    # Arizona
     "asu": "Arizona State University-Tempe",
     "arizona state": "Arizona State University-Tempe",
+    "arizona state university": "Arizona State University-Tempe",
+    "u of a": "University of Arizona",
+    "arizona": "University of Arizona",
+    # New England / Northeast
     "uconn": "University of Connecticut",
     "rutgers": "Rutgers University-New Brunswick",
+    "rutgers university": "Rutgers University-New Brunswick",
+    "umass": "University of Massachusetts-Amherst",
+    "umass amherst": "University of Massachusetts-Amherst",
+    "unh": "University of New Hampshire-Main Campus",
+    "temple": "Temple University",
+    # Big Ten / Midwest
     "uiuc": "University of Illinois Urbana-Champaign",
     "illinois": "University of Illinois Urbana-Champaign",
+    "university of illinois": "University of Illinois Urbana-Champaign",
     "wisconsin": "University of Wisconsin-Madison",
     "uw madison": "University of Wisconsin-Madison",
+    "university of wisconsin": "University of Wisconsin-Madison",
     "minnesota": "University of Minnesota-Twin Cities",
     "umn": "University of Minnesota-Twin Cities",
+    "university of minnesota": "University of Minnesota-Twin Cities",
     "iowa": "University of Iowa",
+    "university of iowa": "University of Iowa",
+    "iowa state": "Iowa State University",
     "indiana": "Indiana University-Bloomington",
+    "iu": "Indiana University-Bloomington",
+    "indiana university": "Indiana University-Bloomington",
     "purdue": "Purdue University-Main Campus",
+    "purdue university": "Purdue University-Main Campus",
+    "nebraska": "University of Nebraska-Lincoln",
+    "unl": "University of Nebraska-Lincoln",
+    "university of nebraska": "University of Nebraska-Lincoln",
+    # Southeast / ACC / SEC
     "florida state": "Florida State University",
     "fsu": "Florida State University",
+    "ucf": "University of Central Florida",
     "miami": "University of Miami",
     "duke": "Duke University",
     "unc": "University of North Carolina at Chapel Hill",
+    "chapel hill": "University of North Carolina at Chapel Hill",
+    "university of north carolina": "University of North Carolina at Chapel Hill",
     "nc state": "North Carolina State University at Raleigh",
     "ncsu": "North Carolina State University at Raleigh",
     "clemson": "Clemson University",
     "south carolina": "University of South Carolina-Columbia",
+    "university of south carolina": "University of South Carolina-Columbia",
     "tennessee": "The University of Tennessee-Knoxville",
+    "university of tennessee": "The University of Tennessee-Knoxville",
+    "ut knoxville": "The University of Tennessee-Knoxville",
     "vanderbilt": "Vanderbilt University",
     "alabama": "The University of Alabama",
+    "university of alabama": "The University of Alabama",
+    "bama": "The University of Alabama",
     "auburn": "Auburn University",
     "lsu": "Louisiana State University and Agricultural & Mechanical College",
     "ole miss": "University of Mississippi",
     "arkansas": "University of Arkansas",
+    "university of arkansas": "University of Arkansas",
     "missouri": "University of Missouri-Columbia",
+    "mizzou": "University of Missouri-Columbia",
+    "university of missouri": "University of Missouri-Columbia",
     "kansas": "University of Kansas",
+    "ku": "University of Kansas",
     "kansas state": "Kansas State University",
+    "k-state": "Kansas State University",
     "oklahoma": "University of Oklahoma-Norman Campus",
     "ou": "University of Oklahoma-Norman Campus",
+    "university of oklahoma": "University of Oklahoma-Norman Campus",
     "oklahoma state": "Oklahoma State University-Main Campus",
+    "osu oklahoma": "Oklahoma State University-Main Campus",
+    "uga": "University of Georgia",
+    "university of georgia": "University of Georgia",
+    "georgia": "University of Georgia",
+    "kentucky": "University of Kentucky",
+    "uk": "University of Kentucky",
+    "university of kentucky": "University of Kentucky",
+    "west virginia": "West Virginia University",
+    "wvu": "West Virginia University",
+    # Mountain / West
     "colorado": "University of Colorado Boulder",
     "cu boulder": "University of Colorado Boulder",
+    "university of colorado": "University of Colorado Boulder",
+    "csu": "Colorado State University-Fort Collins",
+    "colorado state": "Colorado State University-Fort Collins",
     "utah": "University of Utah",
     "byu": "Brigham Young University",
     "oregon": "University of Oregon",
     "oregon state": "Oregon State University",
+    "unm": "University of New Mexico-Main Campus",
+    "new mexico": "University of New Mexico-Main Campus",
+    # Ivy / elite
     "stanford": "Stanford University",
     "harvard": "Harvard University",
     "yale": "Yale University",
@@ -145,6 +225,16 @@ _ALIASES: dict[str, str] = {
     "nyu": "New York University",
     "northwestern": "Northwestern University",
     "uchicago": "University of Chicago",
+    "brown": "Brown University",
+    "dartmouth": "Dartmouth College",
+    "upenn": "University of Pennsylvania",
+    "penn": "University of Pennsylvania",
+    "georgetown": "Georgetown University",
+    "notre dame": "University of Notre Dame",
+    "rice": "Rice University",
+    "emory": "Emory University",
+    "wash u": "Washington University in St Louis",
+    "wustl": "Washington University in St Louis",
 }
 
 # Substrings in school names that almost always mean "this is a branch campus
@@ -152,14 +242,41 @@ _ALIASES: dict[str, str] = {
 # the rank by a large constant so flagships float to the top of the candidate
 # pool whenever they're in the result set.
 _BRANCH_PENALTY_MARKERS = (
+    # Penn State branches
     "altoona", "erie", "harrisburg", "abington", "berks", "brandywine",
     "dubois", "fayette", "greater allegheny", "hazleton", "lehigh valley",
     "mont alto", "new kensington", "schuylkill", "shenango", "wilkes-barre",
-    "worthington",  # Penn State branches
-    "south florida",  # disambiguates "uf" / "florida" from USF
-    "west georgia",   # disambiguates "georgia tech" from West Georgia Tech College
+    "worthington", "world campus", "york",
+    # Generic satellite / extension campus markers
+    "global campus", "online campus", "virtual campus",
+    "extended campus", "extended university",
+    "university college",  # UMD's old international arm
+    "eastern shore",       # UMD satellite
+    "university center",
+    # Michigan branches
+    "dearborn", "flint",
+    # Indiana branches
+    "east", "kokomo", "northwest", "south bend", "southeast",
+    # Pittsburgh branches
+    "johnstown", "greensburg", "titusville", "bradford",
+    # Ohio State branches
+    "lima", "mansfield", "marion", "newark",
+    # Other specific satellites
+    "fort wayne", "south florida", "west georgia",
+    "downtown", "polytechnic",  # ASU Polytechnic campus
+    # Category exclusions
     "technical college", "community college", "junior college",
     "career", "vocational", "online",
+    "health sciences", "medical center",
+)
+
+
+_FLAGSHIP_MARKERS = (
+    "main campus", "university park", "college park", "college station",
+    "ann arbor", "chapel hill", "twin cities", "bloomington",
+    "new brunswick", "tempe", "seattle campus", "norman campus",
+    "fort collins", "amherst", "boulder", "knoxville", "columbia",
+    "columbus", "madison", "urbana-champaign", "austin",
 )
 
 
@@ -167,24 +284,30 @@ def _rank_score(row: dict, query_lower: str) -> int:
     """Score a Scorecard search result for ranking purposes.
 
     Higher score = better match. The base score is enrollment size, with
-    large penalties for branch-campus markers and small bonuses for exact
-    name matches and "main campus" markers.
+    large penalties for branch-campus markers and bonuses for flagship
+    indicators and exact name matches.
     """
     name = (row.get("school.name") or "").lower()
     enrollment = row.get("latest.student.size") or 0
     score = enrollment
 
     # Big penalty for branch-campus markers — but only when the query did
-    # NOT explicitly ask for that branch (e.g. searching "altoona" should
-    # still find Altoona).
+    # NOT explicitly ask for that branch.
     for marker in _BRANCH_PENALTY_MARKERS:
         if marker in name and marker not in query_lower:
             score -= 1_000_000
             break
 
-    # Bonus for "main campus" markers when the query did not specify one.
-    if "main campus" in name or "university park" in name:
-        score += 500_000
+    # Bonus for flagship campus markers.
+    for marker in _FLAGSHIP_MARKERS:
+        if marker in name:
+            score += 500_000
+            break
+
+    # Bonus when the full query appears as a substring of the school name
+    # (e.g., "university of michigan" in "University of Michigan-Ann Arbor").
+    if query_lower in name:
+        score += 200_000
 
     # Exact-match bonus
     if name == query_lower:

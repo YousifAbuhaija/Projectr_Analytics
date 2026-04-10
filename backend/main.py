@@ -9,7 +9,6 @@ Endpoints:
   GET  /hex/stream/{university_name} — NDJSON streamed H3 hex chunks
 """
 
-import hashlib
 import json
 import math
 import os
@@ -80,44 +79,12 @@ def _write_hex_debug_snapshot(university_name: str, payload: dict) -> str | None
         return None
 
 
-def _hex_disk_cache_path(cache_key: tuple) -> Path:
-    slug = hashlib.md5(str(cache_key).encode()).hexdigest()[:16]
-    return Path(config.cache_dir) / "hex" / f"{cache_key[0]}_{slug}.json"
-
-
-def _load_hex_disk_cache(cache_key: tuple) -> dict | None:
-    p = _hex_disk_cache_path(cache_key)
-    if not p.exists():
-        return None
-    try:
-        data = json.loads(p.read_text())
-        saved_at = datetime.fromisoformat(data.get("_cached_at", ""))
-        if (datetime.now(timezone.utc) - saved_at).days > 7:
-            return None  # stale OSM data, recompute
-        return data
-    except Exception:
-        return None
-
-
-def _write_hex_disk_cache(cache_key: tuple, geojson: dict) -> None:
-    p = _hex_disk_cache_path(cache_key)
-    try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        out = {
-            **geojson,
-            "_cached_at": datetime.now(timezone.utc).isoformat(),
-            "_cache_key": list(cache_key),
-        }
-        p.write_text(json.dumps(out), encoding="utf-8")
-    except Exception as exc:
-        print(f"[hex-disk-cache] write failed: {exc}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load pre-scored universities from Firestore (primary) or file cache (fallback)."""
+    """Load scored universities from Firestore on startup."""
 
-    # ── 1. Scores: Firestore → file fallback ──
     if db.is_available():
         fs_scores = await db.get_all_scores()
         if fs_scores:
@@ -125,38 +92,9 @@ async def lifespan(app: FastAPI):
                 _prescored[uid] = HousingPressureScore.model_validate(data)
             print(f"Loaded {len(_prescored)} scores from Firestore.")
         else:
-            print("[Firestore] scores collection empty — seeding from file cache.")
-
-    if not _prescored:
-        cache_path = Path(config.cache_dir) / "prescored.json"
-        if cache_path.exists():
-            data = json.loads(cache_path.read_text())
-            for entry in data:
-                score = HousingPressureScore.model_validate(entry)
-                _prescored[score.university.unitid] = score
-            print(f"Loaded {len(_prescored)} pre-scored universities from file cache.")
-
-        if _prescored and db.is_available():
-            dumped = {uid: json.loads(s.model_dump_json()) for uid, s in _prescored.items()}
-            synced = await db.bulk_set_scores(dumped)
-            print(f"Synced {synced} scores → Firestore.")
-
-    # ── 2. Hex grids: file cache warm-up (Firestore checked at request time) ──
-    hex_cache_dir = Path(config.cache_dir) / "hex"
-    if hex_cache_dir.exists():
-        count = 0
-        for f in hex_cache_dir.glob("*.json"):
-            try:
-                entry_data = json.loads(f.read_text())
-                raw_key = entry_data.get("_cache_key")
-                if raw_key:
-                    hex_cache_key = tuple(raw_key)
-                    _hex_response_cache[hex_cache_key] = entry_data
-                    count += 1
-            except Exception:
-                pass
-        if count:
-            print(f"Warmed {count} hex grids from disk cache.")
+            print("[Firestore] scores collection empty — scores will be added on first analysis.")
+    else:
+        print("[Firestore] Not configured — scores will only persist in memory.")
 
     yield
 
@@ -582,12 +520,6 @@ async def get_hex_grid(
         _hex_response_cache[cache_key] = fs_hit
         return fs_hit
 
-    disk_hit = _load_hex_disk_cache(cache_key)
-    if disk_hit:
-        _hex_response_cache[cache_key] = disk_hit
-        await db.set_hex(cache_key, disk_hit)  # lazy-migrate to Firestore
-        return disk_hit
-
     # ── Generate hex grid ──
     hex_indices = generate_campus_hex_grid(
         campus_lat=uni.lat,
@@ -667,7 +599,6 @@ async def get_hex_grid(
             geojson["metadata"]["debug_log_path"] = debug_path
             print(f"[/hex] Debug snapshot written: {debug_path}")
     _hex_response_cache[cache_key] = geojson
-    _write_hex_disk_cache(cache_key, geojson)
     await db.set_hex(cache_key, geojson)
     return geojson
 

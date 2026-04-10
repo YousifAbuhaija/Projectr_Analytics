@@ -36,3 +36,6 @@ trackrock-*.json
 # Data artifacts (downloaded at runtime, not committed)
 data/
 *.csv
+
+# Backend cache (now in Firestore)
+backend/cache/

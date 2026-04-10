@@ -22,12 +22,18 @@ import type { UniversitySuggestion } from "../lib/universityList";
 import type { HousingPressureScore } from "../lib/api";
 import type { HexGeoJSON } from "../lib/hexApi";
 
-/** Merge static list + dynamic pins, deduplicated by name. */
+/** Normalize a university name for dedup (collapse hyphens, extra spaces, lowercase). */
+const normName = (n: string) =>
+  n.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+
+/** Merge static list + dynamic pins, deduplicated by normalized name. */
 function mergeUniversities(
   dynamic: Record<string, UniversitySuggestion>,
 ): UniversitySuggestion[] {
-  const staticNames = new Set(UNIVERSITIES.map((u) => u.name));
-  const extras = Object.values(dynamic).filter((d) => !staticNames.has(d.name));
+  const staticNames = new Set(UNIVERSITIES.map((u) => normName(u.name)));
+  const extras = Object.values(dynamic).filter(
+    (d) => !staticNames.has(normName(d.name)),
+  );
   return [...UNIVERSITIES, ...extras];
 }
 

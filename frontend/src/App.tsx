@@ -27,6 +27,11 @@ const SCORE_CACHE_KEY = `campuslens_scores_${CACHE_VERSION}`;
 const HEX_CACHE_KEY = `campuslens_hex_${CACHE_VERSION}`;
 const DYNAMIC_UNIS_CACHE_KEY = `campuslens_dynamic_unis_${CACHE_VERSION}`;
 const CACHE_SCHEMA_KEY = "campuslens_cache_schema_version";
+/** Normalize a university name for dedup (collapse hyphens, extra spaces, lowercase). */
+const normName = (n: string) =>
+  n.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+const STATIC_NAMES = new Set(UNIVERSITIES.map((u) => normName(u.name)));
+
 const MAX_HEX_RADIUS_MILES = 5.0;
 const DEFAULT_HEX_RADIUS_MILES = 2.5;
 const HEX_RESOLUTION = 9;
@@ -526,7 +531,7 @@ function App() {
                       : "low",
               };
               const existingIndex = prev.findIndex(
-                (u) => u.unitid === uni.unitid,
+                (u) => u.unitid === uni.unitid || normName(u.name) === normName(actualName),
               );
               if (existingIndex >= 0) {
                 const next = [...prev];
@@ -537,8 +542,8 @@ function App() {
             });
 
             const inStatic =
-              UNIVERSITIES.some((u) => u.name === name) ||
-              UNIVERSITIES.some((u) => u.name === actualName);
+              STATIC_NAMES.has(normName(name)) ||
+              STATIC_NAMES.has(normName(actualName));
 
             if (!inStatic) {
               const newPin: UniversitySuggestion = {
@@ -704,7 +709,7 @@ function App() {
         score_label:
           score.score >= 70 ? "high" : score.score >= 40 ? "medium" : "low",
       };
-      const idx = prev.findIndex((u) => u.unitid === uni.unitid);
+      const idx = prev.findIndex((u) => u.unitid === uni.unitid || normName(u.name) === normName(name));
       if (idx >= 0) {
         const next = [...prev];
         next[idx] = item;
@@ -713,7 +718,7 @@ function App() {
       return [...prev, item];
     });
 
-    const inStatic = UNIVERSITIES.some((u) => u.name === name);
+    const inStatic = STATIC_NAMES.has(normName(name));
     if (!inStatic) {
       const pin: UniversitySuggestion = {
         name,

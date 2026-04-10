@@ -431,19 +431,26 @@ export function SidePanel({
         {!activeJob && queuedJobs.length === 0 && hexLoadingName && (
           <HexLoadingBar name={hexLoadingName} />
         )}
-        {!activeJob && queuedJobs.length === 0 && !hexLoadingName && hexJustLoaded && (
+        {/* Hex done bar: suppress if you're already on that school (hex is visible) */}
+        {!activeJob && queuedJobs.length === 0 && !hexLoadingName && hexJustLoaded && hexJustLoaded !== selectedName && (
           <HexDoneBar name={hexJustLoaded} />
         )}
 
-        {/* Done banners */}
-        {doneJobs.map(job => (
-          <DoneBanner
-            key={job.id}
-            job={job}
-            onView={onViewReport}
-            onDismiss={onDismissJob}
-          />
-        ))}
+        {/* Done banners: suppress if you're already viewing that school's report */}
+        {doneJobs
+          .filter(job => {
+            const jobName = job.resolvedName ?? job.name;
+            const isCurrentSchool = jobName === selectedName || job.name === selectedName;
+            return !(isCurrentSchool && showScore);
+          })
+          .map(job => (
+            <DoneBanner
+              key={job.id}
+              job={job}
+              onView={onViewReport}
+              onDismiss={onDismissJob}
+            />
+          ))}
 
         {/* Error banners */}
         {errorJobs.map(job => (

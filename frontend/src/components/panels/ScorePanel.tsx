@@ -1,9 +1,14 @@
-import { TrendingUp, Building2, DollarSign, MapPin, RefreshCw, BedDouble, Home, CloudRain, GraduationCap, Warehouse, Scale } from "lucide-react";
+import { TrendingUp, Building2, DollarSign, MapPin, RefreshCw, BedDouble, Home, CloudRain, GraduationCap, Warehouse, Scale, ShieldAlert } from "lucide-react";
 import { ScoreGauge } from "../ui/ScoreGauge";
 import { EnrollmentChart } from "../charts/EnrollmentChart";
 import { RentChart } from "../charts/RentChart";
 import { PermitChart } from "../charts/PermitChart";
 import type { HousingPressureScore } from "../../lib/api";
+import {
+  PBSH_CURATED,
+  getConcentrationLevel,
+  concentrationStyle,
+} from "../../lib/pbshOperators";
 
 // "high" pressure score = good developer opportunity (undersupplied market).
 // We keep the internal label keys (high/medium/low) so cached scores still
@@ -480,6 +485,66 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
         )}
 
       </div>
+
+      {/* Institutional PBSH Competition (curated fixture) */}
+      {(() => {
+        const marketKey = `${score.university.city}, ${score.university.state}`;
+        const market = PBSH_CURATED[marketKey];
+        const operators = market?.operators ?? [];
+        const level = getConcentrationLevel(operators);
+        const style = concentrationStyle(level);
+        if (level === "None") return null;
+        return (
+          <div className="bg-zinc-900/50 rounded-xl p-4 border border-zinc-800/50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-orange-400" />
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  Institutional Competition
+                </p>
+              </div>
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
+                style={{ background: style.bg, color: style.text }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: style.dot }} />
+                {style.label}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {operators.map((op) => (
+                <div
+                  key={op.operator}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-zinc-200">{op.operator}</span>
+                    {op.dominant && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">
+                        Dominant
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-zinc-500">
+                    {op.note && (
+                      <span className="text-[10px] text-zinc-600 italic truncate max-w-[100px]">{op.note}</span>
+                    )}
+                    <span className="font-medium text-zinc-400 tabular-nums whitespace-nowrap">
+                      ~{op.property_count} propert{op.property_count !== 1 ? "ies" : "y"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-zinc-700 mt-3">
+              Curated data · verify before underwriting
+              {market?.last_verified && ` · last checked ${market.last_verified}`}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* Trend charts */}
       {score.enrollment_trend.length > 1 && (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Polygon, InfoWindow } from "@vis.gl/react-google-maps";
 import type { HexGeoJSON, HexFeatureProperties } from "../lib/hexApi";
+import { detectPBSHFromParcels } from "../lib/pbshOperators";
 
 // Higher score = stronger developer opportunity → green end of the gradient.
 function scoreToColor(score: number): string {
@@ -306,6 +307,36 @@ export function HexChoropleth({
                       </button>
                     )}
                   </div>
+                </div>
+              );
+            })()}
+
+            {/* PBSH operator detection (Option A — name matching on parcel data) */}
+            {(() => {
+              const parcels = selectedHex.land_parcels ?? [];
+              const detected = detectPBSHFromParcels(parcels);
+              if (detected.length === 0) return null;
+              return (
+                <div
+                  className="mb-2.5 rounded-md p-2 border"
+                  style={{ background: "#fef2f2", borderColor: "#f87171" }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-bold" style={{ color: "#991b1b" }}>
+                      Institutional land-banking detected
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {detected.map(({ operator, parcel_count }) => (
+                      <div key={operator} className="text-[10px]" style={{ color: "#7f1d1d" }}>
+                        <span className="font-semibold">{operator}</span>
+                        {" — "}{parcel_count} parcel{parcel_count !== 1 ? "s" : ""} in tax records
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] mt-1" style={{ color: "#b91c1c" }}>
+                    Matched via owner name · built PBSH may not appear here
+                  </p>
                 </div>
               );
             })()}

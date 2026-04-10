@@ -5,9 +5,13 @@
  * key stats, and a logic-based comparison insight.
  */
 
+import { useState, useRef, useEffect } from "react";
+import { Download, ChevronDown, Loader2 } from "lucide-react";
 import { ScoreGauge } from "../ui/ScoreGauge";
 import { generateCompareInsight } from "../../lib/compareInsight";
 import type { HousingPressureScore } from "../../lib/api";
+import { exportComparisonToPDF, exportComparisonToDocx } from "../../lib/exportReport";
+import { resolveCompareLabels } from "../../lib/uniAbbrev";
 
 function getLabel(score: number): "high" | "medium" | "low" {
   return score >= 70 ? "high" : score >= 40 ? "medium" : "low";
@@ -65,10 +69,81 @@ function ComponentBar({ label, valueA, valueB, color }: { label: string; valueA:
   );
 }
 
+function CompareExportButton({ scoreA, scoreB }: { scoreA: HousingPressureScore; scoreB: HousingPressureScore }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState<"pdf" | "docx" | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  async function handle(format: "pdf" | "docx") {
+    setOpen(false);
+    setLoading(format);
+    try {
+      if (format === "pdf") await exportComparisonToPDF(scoreA, scoreB);
+      else await exportComparisonToDocx(scoreA, scoreB);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  const isLoading = loading !== null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => !isLoading && setOpen(v => !v)}
+        disabled={isLoading}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+                   bg-zinc-800 border border-zinc-700 hover:border-zinc-500
+                   text-zinc-400 hover:text-white text-xs font-medium transition-all
+                   disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {isLoading
+          ? <Loader2 className="w-3 h-3 animate-spin" />
+          : <Download className="w-3 h-3" />}
+        Export
+        {!isLoading && <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl z-50 overflow-hidden">
+          {(
+            [
+              { key: "pdf" as const,  label: "Download PDF",  sub: "Side-by-side report" },
+              { key: "docx" as const, label: "Download Word", sub: ".docx, fully editable" },
+            ]
+          ).map(({ key, label, sub }) => (
+            <button
+              key={key}
+              onClick={() => handle(key)}
+              className="w-full text-left px-4 py-3 hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-0"
+            >
+              <p className="text-xs font-medium text-zinc-100">{label}</p>
+              <p className="text-[10px] text-zinc-500 mt-0.5">{sub}</p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ComparePanel({ scoreA, scoreB, onClear }: ComparePanelProps) {
   const labelA = getLabel(scoreA.score);
   const labelB = getLabel(scoreB.score);
   const insight = generateCompareInsight(scoreA, scoreB);
+  const [abbrevA, abbrevB] = resolveCompareLabels(
+    scoreA.university.name, scoreA.university.city,
+    scoreB.university.name, scoreB.university.city,
+  );
 
   const enrollA = scoreA.enrollment_trend.at(-1)?.total_enrollment;
   const enrollB = scoreB.enrollment_trend.at(-1)?.total_enrollment;
@@ -86,12 +161,15 @@ export function ComparePanel({ scoreA, scoreB, onClear }: ComparePanelProps) {
         <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
           Compare Universities
         </h3>
-        <button
-          onClick={onClear}
-          className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded-lg hover:bg-zinc-800"
-        >
-          Clear
-        </button>
+        <div className="flex items-center gap-2">
+          <CompareExportButton scoreA={scoreA} scoreB={scoreB} />
+          <button
+            onClick={onClear}
+            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded-lg hover:bg-zinc-800"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       {/* University names side-by-side */}
@@ -159,14 +237,14 @@ export function ComparePanel({ scoreA, scoreB, onClear }: ComparePanelProps) {
       <div>
         <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Key Metrics</p>
         <div className="grid grid-cols-2 gap-2">
-          <StatCell label={`Enrollment — ${scoreA.university.name.split(" ")[0]}`} value={enrollA?.toLocaleString() ?? "N/A"} />
-          <StatCell label={`Enrollment — ${scoreB.university.name.split(" ")[0]}`} value={enrollB?.toLocaleString() ?? "N/A"} />
-          <StatCell label={`Rent — ${scoreA.university.name.split(" ")[0]}`} value={rentA ? `$${rentA.toLocaleString()}` : "N/A"} />
-          <StatCell label={`Rent — ${scoreB.university.name.split(" ")[0]}`} value={rentB ? `$${rentB.toLocaleString()}` : "N/A"} />
-          <StatCell label={`Permits — ${scoreA.university.name.split(" ")[0]}`} value={permitsA > 0 ? permitsA.toLocaleString() : "N/A"} sub="5yr total" />
-          <StatCell label={`Permits — ${scoreB.university.name.split(" ")[0]}`} value={permitsB > 0 ? permitsB.toLocaleString() : "N/A"} sub="5yr total" />
-          <StatCell label={`Housing — ${scoreA.university.name.split(" ")[0]}`} value={scoreA.nearby_housing_units > 0 ? scoreA.nearby_housing_units.toLocaleString() : "N/A"} sub="county total" />
-          <StatCell label={`Housing — ${scoreB.university.name.split(" ")[0]}`} value={scoreB.nearby_housing_units > 0 ? scoreB.nearby_housing_units.toLocaleString() : "N/A"} sub="county total" />
+          <StatCell label={`Enrollment — ${abbrevA}`} value={enrollA?.toLocaleString() ?? "N/A"} />
+          <StatCell label={`Enrollment — ${abbrevB}`} value={enrollB?.toLocaleString() ?? "N/A"} />
+          <StatCell label={`Rent — ${abbrevA}`} value={rentA ? `$${rentA.toLocaleString()}` : "N/A"} />
+          <StatCell label={`Rent — ${abbrevB}`} value={rentB ? `$${rentB.toLocaleString()}` : "N/A"} />
+          <StatCell label={`Permits — ${abbrevA}`} value={permitsA > 0 ? permitsA.toLocaleString() : "N/A"} sub="5yr total" />
+          <StatCell label={`Permits — ${abbrevB}`} value={permitsB > 0 ? permitsB.toLocaleString() : "N/A"} sub="5yr total" />
+          <StatCell label={`Housing — ${abbrevA}`} value={scoreA.nearby_housing_units > 0 ? scoreA.nearby_housing_units.toLocaleString() : "N/A"} sub="county total" />
+          <StatCell label={`Housing — ${abbrevB}`} value={scoreB.nearby_housing_units > 0 ? scoreB.nearby_housing_units.toLocaleString() : "N/A"} sub="county total" />
         </div>
       </div>
     </div>

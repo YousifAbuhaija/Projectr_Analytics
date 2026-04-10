@@ -16,6 +16,7 @@ interface SearchBarProps {
   compareGuide?: string;
   rankingMode?: boolean;
   onToggleRanking?: () => void;
+  onHome?: () => void;
 }
 
 export function SearchBar({
@@ -31,6 +32,7 @@ export function SearchBar({
   compareGuide,
   rankingMode,
   onToggleRanking,
+  onHome,
 }: SearchBarProps) {
   // Merge static list + previously searched universities, deduplicated by name
   const staticNames = new Set(UNIVERSITIES.map((u) => u.name));
@@ -135,12 +137,13 @@ export function SearchBar({
   return (
     <header className="shrink-0 z-10 flex items-center justify-between px-6 py-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800">
       {/* Logo */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-          <span className="font-bold text-lg">C</span>
-        </div>
+      <button
+        onClick={onHome}
+        className="flex items-center gap-3 hover:opacity-75 transition-opacity cursor-pointer"
+      >
+        <img src="/logo.png" alt="CampusLens" className="w-8 h-8 object-contain" />
         <h1 className="text-xl font-bold tracking-tight">CampusLens</h1>
-      </div>
+      </button>
 
       {/* Search form */}
       <form onSubmit={(e) => { setOpen(false); onSubmit(e); }} className="flex-1 max-w-md mx-8">

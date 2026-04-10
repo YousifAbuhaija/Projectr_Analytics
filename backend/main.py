@@ -119,12 +119,15 @@ app.add_middleware(
 @app.post("/chat")
 async def chat_with_agent(req: ChatRequest):
     """Answers a chat query via Gemini 2.5 Flash with full DB access, hex data, and scoring."""
+    newly_scored: HousingPressureScore | None = None
 
     async def _score_for_chat(name: str) -> HousingPressureScore | None:
         """Run the full scoring pipeline for a university not yet in the DB."""
+        nonlocal newly_scored
         try:
             result = await score_university(ScoreRequest(university_name=name))
             # score_university already persists to _prescored and Firestore
+            newly_scored = result
             return result
         except HTTPException:
             return None
@@ -133,7 +136,7 @@ async def chat_with_agent(req: ChatRequest):
             return None
 
     try:
-        response_text = await answer_chat_query(
+        response_text, resolved_score = await answer_chat_query(
             messages=req.messages,
             uni_name=req.selectedName,
             active_score=req.activeScore,
@@ -142,7 +145,12 @@ async def chat_with_agent(req: ChatRequest):
             score_callback=_score_for_chat,
             selected_hex=req.selectedHex,
         )
-        return {"response": response_text}
+        # Prefer newly_scored (fresh pipeline run) over resolved_score (cache hit)
+        score_to_return = newly_scored or resolved_score
+        return {
+            "response": response_text,
+            "newly_scored": json.loads(score_to_return.model_dump_json()) if score_to_return else None,
+        }
     except Exception as exc:
         print(f"[/chat] Error: {exc}")
         raise HTTPException(status_code=500, detail="Internal chat error")

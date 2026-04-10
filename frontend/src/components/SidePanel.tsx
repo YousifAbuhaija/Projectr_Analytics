@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, MapPin } from "lucide-react";
+import { ChevronDown, AlertCircle, CheckCircle2, ArrowRight, ArrowLeft, MapPin, Download } from "lucide-react";
 import { EmptyState } from "./panels/EmptyState";
 import { PreviewPanel } from "./panels/PreviewPanel";
 import { ScorePanel } from "./panels/ScorePanel";
@@ -162,10 +162,12 @@ function DoneBanner({
   job,
   onView,
   onDismiss,
+  onExport,
 }: {
   job: ReportJob;
   onView: (job: ReportJob) => void;
   onDismiss: (id: string) => void;
+  onExport?: (job: ReportJob) => void;
 }) {
   const displayName = job.resolvedName ?? job.name;
   return (
@@ -181,6 +183,15 @@ function DoneBanner({
       >
         View <ArrowRight className="w-3 h-3" />
       </button>
+      {onExport && (
+        <button
+          onClick={() => onExport(job)}
+          title="Export PDF"
+          className="text-emerald-400/60 hover:text-emerald-300 transition-colors flex-shrink-0"
+        >
+          <Download className="w-3.5 h-3.5" />
+        </button>
+      )}
       <button
         onClick={() => onDismiss(job.id)}
         className="text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors flex-shrink-0"
@@ -377,6 +388,8 @@ interface SidePanelProps {
   activeLandParcels?: { parcels: LandParcel[]; label: string } | null;
   onDismissLandParcels?: () => void;
   selectedHexProps?: HexFeatureProperties | null;
+  onUniversityScored?: (score: HousingPressureScore) => void;
+  onExportJob?: (job: ReportJob) => void;
 }
 
 export function SidePanel({
@@ -397,6 +410,8 @@ export function SidePanel({
   activeLandParcels,
   onDismissLandParcels,
   selectedHexProps,
+  onUniversityScored,
+  onExportJob,
 }: SidePanelProps) {
   const [activeTab, setActiveTab] = useState<"data" | "chat">("data");
 
@@ -452,6 +467,7 @@ export function SidePanel({
               job={job}
               onView={onViewReport}
               onDismiss={onDismissJob}
+              onExport={onExportJob}
             />
           ))}
 
@@ -511,7 +527,7 @@ export function SidePanel({
         
         {/* Chatbot Panel - rendered always, but visibility depends on tab */}
         <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === "chat" && !!selectedName ? "opacity-100 z-10" : "opacity-0 pointer-events-none"}`}>
-          <ChatbotWidget selectedName={selectedName} activeScore={activeScore} selectedHex={selectedHexProps ?? null} />
+          <ChatbotWidget selectedName={selectedName} activeScore={activeScore} selectedHex={selectedHexProps ?? null} onUniversityScored={onUniversityScored} />
         </div>
       </div>
     </aside>

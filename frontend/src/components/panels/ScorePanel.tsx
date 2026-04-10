@@ -3,6 +3,7 @@ import { ScoreGauge } from "../ui/ScoreGauge";
 import { EnrollmentChart } from "../charts/EnrollmentChart";
 import { RentChart } from "../charts/RentChart";
 import { PermitChart } from "../charts/PermitChart";
+import { ExportButton } from "../ui/ExportButton";
 import type { HousingPressureScore } from "../../lib/api";
 import {
   PBSH_CURATED,
@@ -104,18 +105,21 @@ export function ScorePanel({ score, onRecompute }: { score: HousingPressureScore
             </p>
           )}
         </div>
-        {onRecompute && (
-          <button
-            onClick={onRecompute}
-            title="Re-run live analysis"
-            className="shrink-0 mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                       bg-zinc-800 border border-zinc-700 hover:border-blue-500
-                       text-zinc-400 hover:text-white text-xs font-medium transition-all"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Recompute
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0 mt-1">
+          <ExportButton score={score} />
+          {onRecompute && (
+            <button
+              onClick={onRecompute}
+              title="Re-run live analysis"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                         bg-zinc-800 border border-zinc-700 hover:border-blue-500
+                         text-zinc-400 hover:text-white text-xs font-medium transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Recompute
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Score card */}

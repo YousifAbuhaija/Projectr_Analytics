@@ -13,9 +13,10 @@ interface ChatbotWidgetProps {
   selectedName: string | null;
   activeScore: HousingPressureScore | null;
   selectedHex: HexFeatureProperties | null;
+  onUniversityScored?: (score: HousingPressureScore) => void;
 }
 
-export function ChatbotWidget({ selectedName, activeScore, selectedHex }: ChatbotWidgetProps) {
+export function ChatbotWidget({ selectedName, activeScore, selectedHex, onUniversityScored }: ChatbotWidgetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([{
     role: "assistant",
     content: "Hi! I'm your CampusLens analyst. I can discuss housing pressure scores, hex-level development opportunities, compare markets, or analyze any US university — even ones not yet in the database. Ask me anything."
@@ -30,7 +31,7 @@ export function ChatbotWidget({ selectedName, activeScore, selectedHex }: Chatbo
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const generateResponse = async (currentHistory: ChatMessage[]): Promise<string> => {
+  const generateResponse = async (currentHistory: ChatMessage[]): Promise<{ text: string; newlyScored: HousingPressureScore | null }> => {
     try {
       const baseUrl = "http://localhost:8000";
       const payload = {
@@ -54,13 +55,13 @@ export function ChatbotWidget({ selectedName, activeScore, selectedHex }: Chatbo
 
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
-      return data.response;
+      return { text: data.response, newlyScored: data.newly_scored ?? null };
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        return "The analysis timed out. This can happen when scoring a new university with slow data sources. Try asking again.";
+        return { text: "The analysis timed out. This can happen when scoring a new university with slow data sources. Try asking again.", newlyScored: null };
       }
       console.error("Chat error:", err);
-      return "Looks like I'm having trouble reaching the server right now. Make sure the backend is running!";
+      return { text: "Looks like I'm having trouble reaching the server right now. Make sure the backend is running!", newlyScored: null };
     }
   };
 
@@ -79,10 +80,14 @@ export function ChatbotWidget({ selectedName, activeScore, selectedHex }: Chatbo
     setIsLoading(true);
 
     // Fetch assistant response asynchronously
-    const responseContent = await generateResponse(newHistory);
+    const result = await generateResponse(newHistory);
 
-    setMessages(prev => [...prev, { role: "assistant", content: responseContent }]);
+    setMessages(prev => [...prev, { role: "assistant", content: result.text }]);
     setIsLoading(false);
+
+    if (result.newlyScored && onUniversityScored) {
+      onUniversityScored(result.newlyScored);
+    }
   };
 
   return (

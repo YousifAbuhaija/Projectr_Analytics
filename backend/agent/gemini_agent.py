@@ -610,16 +610,16 @@ async def answer_chat_query(
     hex_cache: dict | None = None,
     score_callback=None,
     selected_hex: dict | None = None,
-) -> str:
+) -> tuple[str, HousingPressureScore | None]:
     """Answer a chat query with full database access, hex data, and scoring capability."""
     if not config.gemini_api_key:
-        return "AI capabilities aren't configured (missing Gemini API key)."
+        return "AI capabilities aren't configured (missing Gemini API key).", None
 
     try:
         from google import genai
         from google.genai import types
     except ImportError:
-        return "The google-genai package is not installed on the server."
+        return "The google-genai package is not installed on the server.", None
 
     client = genai.Client(api_key=config.gemini_api_key)
 
@@ -742,6 +742,8 @@ async def answer_chat_query(
         temperature=0.4,
     )
 
+    resolved_score: HousingPressureScore | None = None
+
     try:
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
@@ -764,9 +766,13 @@ async def answer_chat_query(
                 result = ""
 
                 if fc.name == "lookup_university":
-                    result = _lookup_university_data(
-                        fc.args.get("university_name", ""), all_scores
-                    )
+                    uni_to_lookup = fc.args.get("university_name", "")
+                    result = _lookup_university_data(uni_to_lookup, all_scores)
+                    # Track the resolved score so the frontend can add it to the map
+                    if all_scores and resolved_score is None:
+                        uid = _resolve_unitid(uni_to_lookup, all_scores)
+                        if uid is not None:
+                            resolved_score = all_scores[uid]
                 elif fc.name == "lookup_hex_data":
                     result = _lookup_hex_data(
                         fc.args.get("university_name", ""),
@@ -779,6 +785,7 @@ async def answer_chat_query(
                         try:
                             new_score = await score_callback(uni_to_score)
                             if new_score:
+                                resolved_score = new_score
                                 result = (
                                     "Successfully scored! Data is now in the database.\n"
                                     + _build_score_snapshot(
@@ -817,10 +824,10 @@ async def answer_chat_query(
                 config=gen_config,
             )
 
-        return response.text.strip()
+        return response.text.strip(), resolved_score
     except Exception as exc:
         print(f"[Gemini] Chat exception: {exc}")
-        return "I hit a snag processing that. Could you try asking again?"
+        return "I hit a snag processing that. Could you try asking again?", None
 
 
 # ── SSE event helpers ──

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { exportToPDF } from "./lib/exportReport";
 import { APIProvider } from "@vis.gl/react-google-maps";
 import { streamScore, fetchUniversities } from "./lib/api";
 import { fetchHexGrid } from "./lib/hexApi";
@@ -526,6 +527,15 @@ function App() {
     setSearchQuery(name);
   };
 
+  /** Logo / title click — return to map with no selection */
+  const handleHome = () => {
+    setSelectedName(null);
+    setSelectedCoords(null);
+    setSearchQuery("");
+    if (compareMode) handleToggleCompare();
+    if (rankingMode) setRankingMode(false);
+  };
+
   /** Search bar Enter */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -553,6 +563,59 @@ function App() {
   const handleRecompute = () => {
     if (!selectedName) return;
     enqueueReport(selectedName, true);
+  };
+
+  /** Called by ChatbotWidget when the AI agent scores a new university during chat. */
+  const handleUniversityScored = (score: HousingPressureScore) => {
+    const uni = score.university;
+    const name = uni.name;
+
+    setScoreCache(prev => ({ ...prev, [name]: score }));
+    writeEntry(SCORE_CACHE_KEY, name, score);
+
+    setNationalUniversities(prev => {
+      const item: UniversityListItem = {
+        unitid: uni.unitid,
+        name,
+        city: uni.city,
+        state: uni.state,
+        lat: uni.lat,
+        lon: uni.lon,
+        score: score.score,
+        score_label: score.score >= 70 ? "high" : score.score >= 40 ? "medium" : "low",
+      };
+      const idx = prev.findIndex(u => u.unitid === uni.unitid);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = item;
+        return next;
+      }
+      return [...prev, item];
+    });
+
+    const inStatic = UNIVERSITIES.some(u => u.name === name);
+    if (!inStatic) {
+      const pin: UniversitySuggestion = {
+        name,
+        city: uni.city,
+        state: uni.state,
+        lat: uni.lat,
+        lon: uni.lon,
+        domain: extractDomain(uni.url),
+      };
+      setDynamicUnis(prev => ({ ...prev, [name]: pin }));
+      writeEntry(DYNAMIC_UNIS_CACHE_KEY, name, pin);
+    }
+
+    const debugHex = isVirginiaTechName(name);
+    void loadHexStream(name, [name], HEX_RESOLUTION, MAX_HEX_RADIUS_MILES, debugHex, false, true);
+  };
+
+  /** Download PDF from the DoneBanner — looks up score from cache */
+  const handleExportJob = (job: ReportJob) => {
+    const name = job.resolvedName ?? job.name;
+    const score = scoreCache[name];
+    if (score) void exportToPDF(score);
   };
 
   const handleHoverPrefetch = (name: string) => {
@@ -632,6 +695,7 @@ function App() {
         compareGuide={compareGuide}
         rankingMode={rankingMode}
         onToggleRanking={handleToggleRanking}
+        onHome={handleHome}
       />
       <main className="flex flex-1 min-h-0">
         {rankingMode ? (
@@ -699,6 +763,8 @@ function App() {
                 activeLandParcels={activeLandParcels}
                 onDismissLandParcels={() => setActiveLandParcels(null)}
                 selectedHexProps={selectedHexProps}
+                onUniversityScored={handleUniversityScored}
+                onExportJob={handleExportJob}
               />
             )}
           </>

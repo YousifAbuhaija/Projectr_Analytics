@@ -12,7 +12,7 @@ import { ComparePanel } from "./components/panels/ComparePanel";
 import { CompareSetupPanel } from "./components/panels/CompareSetupPanel";
 import { RankingView } from "./components/RankingView";
 import type { HousingPressureScore, UniversityListItem } from "./lib/api";
-import type { HexGeoJSON } from "./lib/hexApi";
+import type { HexGeoJSON, HexFeatureProperties } from "./lib/hexApi";
 
 const MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 const CACHE_VERSION = "v10";
@@ -164,6 +164,9 @@ function App() {
   const [hexCache, setHexCache] = useState<Record<string, HexGeoJSON>>(
     () => readSplitCache<HexGeoJSON>(HEX_CACHE_KEY)
   );
+
+  // Currently selected hex cell (clicked by user on map) — forwarded to chat
+  const [selectedHexProps, setSelectedHexProps] = useState<HexFeatureProperties | null>(null);
 
   // Land parcel detail panel — populated when user clicks "view all" in a hex popup
   const [activeLandParcels, setActiveLandParcels] = useState<{
@@ -654,6 +657,7 @@ function App() {
                 onHoverPrefetch={handleHoverPrefetch}
                 isHexLoading={selectedName ? hexLoadingNames.has(selectedName) : false}
                 onViewAllParcels={(parcels, label) => setActiveLandParcels({ parcels, label })}
+                onHexSelect={setSelectedHexProps}
               />
             </APIProvider>
 
@@ -694,6 +698,7 @@ function App() {
                 hexJustLoaded={hexJustLoaded}
                 activeLandParcels={activeLandParcels}
                 onDismissLandParcels={() => setActiveLandParcels(null)}
+                selectedHexProps={selectedHexProps}
               />
             )}
           </>

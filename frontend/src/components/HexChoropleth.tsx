@@ -142,12 +142,18 @@ export function HexChoropleth({
   hexData,
   maxDistanceMiles,
   onViewAllParcels,
+  onHexSelect,
 }: {
   hexData: HexGeoJSON;
   maxDistanceMiles?: number;
   onViewAllParcels?: (parcels: LandParcelItem[], label: string) => void;
+  onHexSelect?: (hex: HexFeatureProperties | null) => void;
 }) {
-  const [selectedHex, setSelectedHex] = useState<HexFeatureProperties | null>(null);
+  const [selectedHex, setSelectedHexLocal] = useState<HexFeatureProperties | null>(null);
+  const setSelectedHex = (hex: HexFeatureProperties | null) => {
+    setSelectedHexLocal(hex);
+    onHexSelect?.(hex);
+  };
   const normalizedStatus = selectedHex
     ? normalizeDevelopmentStatus(selectedHex)
     : null;

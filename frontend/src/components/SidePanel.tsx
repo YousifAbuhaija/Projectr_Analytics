@@ -5,6 +5,7 @@ import { PreviewPanel } from "./panels/PreviewPanel";
 import { ScorePanel } from "./panels/ScorePanel";
 import { ChatbotWidget } from "./ui/ChatbotWidget";
 import type { HousingPressureScore } from "../lib/api";
+import type { HexFeatureProperties } from "../lib/hexApi";
 import type { UniversitySuggestion } from "../lib/universityList";
 import type { LogEntry, ReportJob } from "../App";
 
@@ -375,6 +376,7 @@ interface SidePanelProps {
   hexJustLoaded?: string | null;
   activeLandParcels?: { parcels: LandParcel[]; label: string } | null;
   onDismissLandParcels?: () => void;
+  selectedHexProps?: HexFeatureProperties | null;
 }
 
 export function SidePanel({
@@ -394,6 +396,7 @@ export function SidePanel({
   hexJustLoaded,
   activeLandParcels,
   onDismissLandParcels,
+  selectedHexProps,
 }: SidePanelProps) {
   const [activeTab, setActiveTab] = useState<"data" | "chat">("data");
 
@@ -508,7 +511,7 @@ export function SidePanel({
         
         {/* Chatbot Panel - rendered always, but visibility depends on tab */}
         <div className={`absolute inset-0 flex flex-col transition-opacity duration-300 ${activeTab === "chat" && !!selectedName ? "opacity-100 z-10" : "opacity-0 pointer-events-none"}`}>
-          <ChatbotWidget selectedName={selectedName} activeScore={activeScore} />
+          <ChatbotWidget selectedName={selectedName} activeScore={activeScore} selectedHex={selectedHexProps ?? null} />
         </div>
       </div>
     </aside>

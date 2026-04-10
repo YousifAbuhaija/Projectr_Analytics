@@ -14,6 +14,7 @@ Two responsibilities:
 
 import asyncio
 import json
+from collections import Counter
 from typing import AsyncGenerator
 
 from backend.config import config
@@ -109,87 +110,496 @@ async def generate_gemini_summary(score: HousingPressureScore) -> str:
         return ""
 
 
-_CHAT_SYSTEM_PROMPT = """You are an expert student housing market analyst embedded directly into the CampusLens intelligence platform.
+# ── Chat agent ──
 
-Your goal is to answer the user's questions about housing markets, development risk, and comparative metrics.
-The user (a real estate developer or institutional analyst) will ask you to interpret the market data currently shown on their dashboard.
+_CHAT_SYSTEM_PROMPT = """You are an expert student housing market analyst and real estate development advisor embedded in the CampusLens intelligence platform.
 
-You have access to a database of scored universities. You can look up detailed data for ANY university in the database using the lookup_university tool. When the user asks about a university that isn't the currently selected one, use the tool to fetch its data before answering.
+You help real estate developers, institutional investors, and housing analysts make data-driven decisions about purpose-built student housing (PBSH) development.
 
-RULES FOR REASONING:
-1. Base your answers on injected market metrics and data retrieved via tool calls.
-2. Prioritize causal reasoning: explain *why* a score is high or low by contrasting demand-side pressure (enrollment growth, rent growth) against supply-side response (building permits, existing housing).
-3. Be concise and insightful. Use an authoritative, analytical tone. Avoid generic fluff.
-4. Highlight specific tradeoffs, constraints, or development risks based on the data.
-5. When comparing universities, use the lookup_university tool to fetch data for each one.
-6. Provide light comparative context (e.g. "Rent growth of 8% outpaces typical national inflation...")."""
+## YOUR CAPABILITIES
+- Access detailed housing market data for any scored university in the database
+- Analyze H3 hexagonal grid data showing spatial supply/demand patterns around campuses
+- Score and analyze new universities not yet in the database (takes ~30 seconds)
+- Compare markets across multiple universities
+- Discuss specific development sites, parcels, zoning, and buildability at the hex level
+
+## DATA YOU UNDERSTAND
+
+### Housing Pressure Score (0-100)
+Composite index of student housing undersupply:
+- **Enrollment Pressure** (40% weight): Based on 5-year enrollment CAGR. Higher growth = more demand.
+- **Permit Gap** (35% weight): Ratio of new residential permits to existing housing stock. Fewer permits relative to stock = higher gap = more undersupply.
+- **Rent Pressure** (25% weight): 3-year average rent growth. Faster rent growth = stronger demand signal.
+
+Score labels: High Pressure (>=70) = strong development opportunity | Emerging (40-69) = moderate | Balanced (<40) = likely saturated
+
+### University-Level Data
+Each scored university has: enrollment trends (10+ years from IPEDS), county-level building permits (Census BPS), rent history (ApartmentList + HUD FMR), demographics (Census ACS: income, home values, vacancy rates, renter share, education), on-campus dorm capacity (IPEDS beds-per-student ratio), disaster risk (FEMA declarations), institutional strength (endowment, retention, selectivity: composite 0-100), existing housing stock (OSM building counts and density), master plans (planned on-campus beds, P3 deals, horizon years), and occupancy ordinances (city-level caps on unrelated persons per unit).
+
+### Hex-Level Spatial Data (H3 Grid)
+When hex data is loaded for a university, each H3 hex cell around the campus contains:
+- **pressure_score** (0-100): Localized demand signal for that specific area
+- **development_status**: One of: "Potentially buildable", "Likely off-campus", "Already developed (infill/redevelopment only)", "On-campus constrained", "Hard non-buildable", or "Likely non-buildable (water/land-use constraints)"
+- **buildability_score** (0-100): Construction feasibility based on land use, constraints, and zoning
+- **transit_label**: "Transit Hub" / "Walkable" / "Isolated"
+- **zoning_code / zoning_label / zoning_pbsh_signal**: Municipal zoning district and whether it's favorable for PBSH (positive / neutral / restrictive / constrained / negative)
+- **land_parcels**: Vacant or land-dominant parcels with address, acreage, land value, market value, owner name, absentee status, and land use classification
+- **coverage_pct**: Land use breakdown (water, wetland, campus, residential built, commercial built, parking, open/recreation)
+- **distance_to_campus_miles**: Proximity to campus center
+- **bus_stop_count / permit_density / unit_density**: Transit and supply metrics
+- **vacant_parcel_count**: Number of developable parcels in the hex
+
+## TOOLS
+1. **lookup_university** - Get full market data for any university in the database. Use when the user asks about a university other than the currently selected one, or when comparing markets.
+2. **lookup_hex_data** - Get H3 hex grid spatial analysis for a university. Returns development status, buildability, transit, zoning, and land parcels.
+3. **score_new_university** - Score a university NOT in the database. Runs the full data pipeline (~30 seconds). Use when asked about an unscored university. Tell the user you're running the analysis.
+
+## RESPONSE GUIDELINES
+- Be analytical, specific, and data-driven. Reference actual numbers from the data.
+- For development questions, discuss specific sites, parcels, zoning, and buildability.
+- When comparing markets, use lookup_university to fetch data for each one.
+- If asked about a university not in the database, IMMEDIATELY use score_new_university — do NOT ask for permission first. Tell the user "I'm analyzing [university name] now — this takes about 30 seconds" and then proceed with the tool call.
+- Highlight actionable insights: where to build, what risks exist, regulatory constraints, competitive dynamics.
+- When discussing parcels, mention addresses, acreage, owners, and absentee status.
+- Be concise but thorough. No filler. Think like a development advisor speaking to a sophisticated investor.
+- Use markdown formatting for readability (headers, bold, bullet points) when appropriate."""
 
 
 def _build_score_snapshot(name: str, score: HousingPressureScore) -> str:
-    """Build a concise market snapshot string from a HousingPressureScore."""
+    """Build a comprehensive market data snapshot from a HousingPressureScore."""
     from backend.adapters.ipeds import compute_enrollment_cagr
     from backend.adapters.rent import compute_rent_growth
 
-    cagr = compute_enrollment_cagr(score.enrollment_trend, years=3)
-    rent_growth = compute_rent_growth(score.rent_history, years=2)
-    permits_2yr = sum(p.permits for p in score.permit_history[-2:]) if score.permit_history else 0
+    cagr = compute_enrollment_cagr(score.enrollment_trend, years=5)
+    rent_growth = compute_rent_growth(score.rent_history, years=3)
+    permits_5yr = sum(p.permits for p in score.permit_history[-5:]) if score.permit_history else 0
 
     cagr_str = f"{cagr:+.1f}%" if cagr is not None else "N/A"
     rent_str = f"{rent_growth:+.1f}%" if rent_growth is not None else "N/A"
 
     enrollment = score.enrollment_trend[-1].total_enrollment if score.enrollment_trend else None
     housing_units = score.nearby_housing_units or None
-
-    beds = None
-    if score.housing_capacity and score.housing_capacity.dormitory_capacity:
-        beds = score.housing_capacity.dormitory_capacity
+    beds = score.housing_capacity.dormitory_capacity if score.housing_capacity and score.housing_capacity.dormitory_capacity else None
 
     beds_ratio = "N/A"
     if beds is not None and enrollment is not None and enrollment > 0:
-        beds_ratio = f"{beds / enrollment:.2f}"
+        beds_ratio = f"{beds / enrollment:.3f}"
 
     enrollment_str = f"{enrollment:,}" if enrollment is not None else "N/A"
     housing_units_str = f"{housing_units:,}" if housing_units is not None else "N/A"
     beds_str = f"{beds:,}" if beds is not None else "N/A"
+    label = "High Pressure" if score.score >= 70 else "Emerging" if score.score >= 40 else "Balanced"
 
-    raw_data_dump = score.model_dump_json(exclude={"gemini_summary"}, exclude_none=True, indent=2)
+    lines = [
+        f"\n=== MARKET DATA: {name} ===",
+        f"Location: {score.university.city}, {score.university.state} | IPEDS: {score.university.unitid}",
+        f"",
+        f"HOUSING PRESSURE SCORE: {score.score:.1f}/100 ({label})",
+        f"  Enrollment Pressure: {score.components.enrollment_pressure:.1f}/100 (40% weight)",
+        f"  Permit Gap: {score.components.permit_gap:.1f}/100 (35% weight)",
+        f"  Rent Pressure: {score.components.rent_pressure:.1f}/100 (25% weight)",
+        f"",
+        f"KEY METRICS:",
+        f"  Enrollment: {enrollment_str} (5yr CAGR: {cagr_str})",
+        f"  Residential Permits (5yr total): {permits_5yr:,} units",
+        f"  Rent Growth (3yr avg): {rent_str}",
+        f"  County Housing Units: {housing_units_str}",
+        f"  On-Campus Beds: {beds_str} ({beds_ratio} beds/student)",
+    ]
 
-    return f"""
-MARKET DATA FOR: {name}
+    if score.demographics:
+        d = score.demographics
+        lines += ["", "DEMOGRAPHICS (Census ACS):"]
+        if d.median_household_income:
+            lines.append(f"  Median HH Income: ${d.median_household_income:,}")
+        if d.median_home_value:
+            lines.append(f"  Median Home Value: ${d.median_home_value:,}")
+        if d.median_gross_rent:
+            lines.append(f"  Median Gross Rent: ${d.median_gross_rent:,}/mo")
+        if d.vacancy_rate_pct is not None:
+            lines.append(f"  Vacancy Rate: {d.vacancy_rate_pct:.1f}%")
+        if d.pct_renter_occupied is not None:
+            lines.append(f"  Renter-Occupied: {d.pct_renter_occupied:.1f}%")
+        if d.pct_bachelors_or_higher is not None:
+            lines.append(f"  Bachelor's+: {d.pct_bachelors_or_higher:.1f}%")
+        if d.total_housing_units:
+            lines.append(f"  Total Housing Units: {d.total_housing_units:,}")
 
-MARKET SNAPSHOT:
-• Housing Pressure Score: {score.score:.1f}/100
-• Enrollment: {enrollment_str} (3-year CAGR: {cagr_str})
-• Rent Growth (2-year average): {rent_str}
-• Permits Filed (last 2 years): {permits_2yr:,} residential units
-• Current Housing Units (County): {housing_units_str}
-• On-Campus Bed Capacity: {beds_str} (approx {beds_ratio} beds per student)
+    if score.housing_capacity:
+        hc = score.housing_capacity
+        lines += ["", "ON-CAMPUS HOUSING (IPEDS):"]
+        lines.append(f"  Dormitory Capacity: {hc.dormitory_capacity:,} beds (year: {hc.year})")
+        if hc.typical_room_charge:
+            lines.append(f"  Room Charge: ${hc.typical_room_charge:,}/yr")
+        if hc.typical_board_charge:
+            lines.append(f"  Board Charge: ${hc.typical_board_charge:,}/yr")
+        if hc.beds_per_student is not None:
+            lines.append(f"  Beds/Student: {hc.beds_per_student:.3f}")
 
-COMPONENT BREAKDOWN:
-• Enrollment Pressure: {score.components.enrollment_pressure:.1f}/100
-• Rent Pressure: {score.components.rent_pressure:.1f}/100
-• Permit Gap: {score.components.permit_gap:.1f}/100
+    if score.institutional_strength:
+        ist = score.institutional_strength
+        lines += ["", "INSTITUTIONAL STRENGTH:"]
+        if ist.ownership_label:
+            lines.append(f"  Type: {ist.ownership_label}")
+        if ist.endowment_end:
+            lines.append(f"  Endowment: ${ist.endowment_end:,}")
+        if ist.endowment_per_student:
+            lines.append(f"  Endowment/Student: ${ist.endowment_per_student:,}")
+        if ist.retention_rate is not None:
+            lines.append(f"  Retention: {ist.retention_rate*100:.1f}%")
+        if ist.admission_rate is not None:
+            lines.append(f"  Admission Rate: {ist.admission_rate*100:.1f}%")
+        if ist.pell_grant_rate is not None:
+            lines.append(f"  Pell Rate: {ist.pell_grant_rate*100:.1f}%")
+        if ist.strength_score is not None:
+            lines.append(f"  Strength: {ist.strength_score:.0f}/100 ({ist.strength_label or 'N/A'})")
 
-RAW API DATA:
-```json
-{raw_data_dump}
-```"""
+    if score.disaster_risk:
+        dr = score.disaster_risk
+        lines += ["", f"DISASTER RISK ({dr.window_years}yr):"]
+        lines.append(f"  Total: {dr.total_disasters} | Weather: {dr.weather_disasters}")
+        if dr.by_type:
+            for dtype, count in sorted(dr.by_type.items(), key=lambda x: -x[1])[:5]:
+                lines.append(f"    {dtype}: {count}")
+        if dr.most_recent_year:
+            lines.append(f"  Most Recent: {dr.most_recent_year}")
+
+    if score.existing_housing:
+        eh = score.existing_housing
+        lines += ["", f"EXISTING HOUSING (OSM, {eh.radius_miles}mi):"]
+        lines.append(f"  Apartments: {eh.apartment_buildings} | Dorms: {eh.dormitory_buildings} | Residential: {eh.residential_buildings} | Houses: {eh.house_buildings}")
+        lines.append(f"  Total: {eh.total_buildings} | Density: {eh.apartment_density_per_km2:.1f}/km2 | Saturation: {eh.saturation_label}")
+
+    if score.master_plan:
+        mp = score.master_plan
+        lines += ["", "MASTER PLAN:"]
+        lines.append(f"  Planned Beds: {mp.planned_beds:,} (weighted: {mp.planned_beds_weighted:,})")
+        if mp.horizon_year:
+            lines.append(f"  Horizon: {mp.horizon_year}")
+        p3_str = f"Yes — {mp.p3_partner}" if mp.p3_deal and mp.p3_partner else ("Yes" if mp.p3_deal else "No")
+        lines.append(f"  P3: {p3_str}")
+        lines.append(f"  Confidence: {mp.confidence}")
+        if mp.notes:
+            lines.append(f"  Notes: {mp.notes}")
+
+    if score.occupancy_ordinance and score.occupancy_ordinance.ordinance_type != "none":
+        oo = score.occupancy_ordinance
+        lines += ["", "OCCUPANCY ORDINANCE:"]
+        lines.append(f"  Type: {oo.ordinance_type}")
+        if oo.max_unrelated_occupants:
+            lines.append(f"  Max Unrelated: {oo.max_unrelated_occupants}")
+        lines.append(f"  Enforced: {'Yes' if oo.enforced else 'No'} | PBSH Signal: {oo.pbsh_signal}")
+        if oo.notes:
+            lines.append(f"  Notes: {oo.notes}")
+
+    if score.enrollment_trend:
+        lines += ["", "ENROLLMENT TREND:"]
+        for et in score.enrollment_trend:
+            lines.append(f"  {et.year}: {et.total_enrollment:,}")
+
+    if score.permit_history:
+        lines += ["", "PERMIT HISTORY:"]
+        for ph in score.permit_history:
+            lines.append(f"  {ph.year}: {ph.permits:,}")
+
+    if score.rent_history:
+        lines += ["", "RENT HISTORY:"]
+        for rh in score.rent_history:
+            month_str = f"/{rh.month:02d}" if rh.month else ""
+            lines.append(f"  {rh.year}{month_str}: ${rh.median_rent:,.0f}/mo ({rh.source})")
+
+    return "\n".join(lines)
+
+
+def _build_hex_summary(geojson: dict, university_name: str = "") -> str:
+    """Build a comprehensive hex grid summary for Gemini context."""
+    features = geojson.get("features", [])
+    metadata = geojson.get("metadata", {})
+
+    if not features:
+        return f"No hex grid data available for {university_name}."
+
+    uni_name = metadata.get("university", university_name)
+    scores = [
+        f["properties"]["pressure_score"]
+        for f in features
+        if "pressure_score" in f.get("properties", {})
+    ]
+
+    statuses = Counter(
+        f["properties"].get("development_status", "Unknown") for f in features
+    )
+    transit_labels = Counter(
+        f["properties"].get("transit_label", "Unknown") for f in features
+    )
+
+    buildable = [
+        f for f in features if f.get("properties", {}).get("buildable_for_housing")
+    ]
+    top_hexes = sorted(
+        buildable,
+        key=lambda f: f["properties"]["pressure_score"],
+        reverse=True,
+    )[:15]
+
+    lines = [
+        f"\n=== HEX GRID: {uni_name} ===",
+        f"Radius: {metadata.get('effective_radius_miles', 'N/A')}mi | "
+        f"Resolution: {metadata.get('hex_resolution', 9)} | "
+        f"Total: {len(features)} hexes",
+    ]
+
+    if scores:
+        lines += [
+            "",
+            "PRESSURE SCORE DISTRIBUTION:",
+            f"  Mean: {sum(scores)/len(scores):.1f} | Min: {min(scores):.0f} | Max: {max(scores):.0f}",
+            f"  High (>=70): {sum(1 for s in scores if s >= 70)} | "
+            f"Medium (40-69): {sum(1 for s in scores if 40 <= s < 70)} | "
+            f"Low (<40): {sum(1 for s in scores if s < 40)}",
+        ]
+
+    lines += ["", "DEVELOPMENT STATUS:"]
+    for status, count in sorted(statuses.items(), key=lambda x: -x[1]):
+        lines.append(f"  {status}: {count}")
+
+    lines += ["", "TRANSIT ACCESS:"]
+    for lbl, count in sorted(transit_labels.items(), key=lambda x: -x[1]):
+        lines.append(f"  {lbl}: {count}")
+
+    # Zoning signals
+    zoning_signals: Counter = Counter()
+    for f in features:
+        signal = f.get("properties", {}).get("zoning_pbsh_signal")
+        if signal:
+            zoning_signals[signal] += 1
+    if zoning_signals:
+        lines += ["", "ZONING PBSH SIGNALS:"]
+        for signal, count in sorted(zoning_signals.items(), key=lambda x: -x[1]):
+            lines.append(f"  {signal}: {count}")
+
+    lines.append(f"\nBUILDABLE HEXES: {len(buildable)} of {len(features)}")
+
+    if top_hexes:
+        lines += ["", "TOP BUILDABLE HEXES (by pressure score):"]
+        for i, f in enumerate(top_hexes, 1):
+            p = f["properties"]
+            parts = [f"  {i}. score={p['pressure_score']:.0f}"]
+            parts.append(f"dist={p.get('distance_to_campus_miles', 0):.1f}mi")
+            parts.append(f"buildability={p.get('buildability_score', 0):.0f}")
+            parts.append(f"transit={p.get('transit_label', 'N/A')}")
+            if p.get("zoning_label"):
+                parts.append(
+                    f"zoning={p['zoning_label']}({p.get('zoning_pbsh_signal', '?')})"
+                )
+            if p.get("vacant_parcel_count"):
+                parts.append(f"parcels={p['vacant_parcel_count']}")
+            if p.get("center_lat") and p.get("center_lng"):
+                parts.append(f"@({p['center_lat']:.4f},{p['center_lng']:.4f})")
+            lines.append(", ".join(parts))
+
+    # Land parcels across all hexes
+    all_parcels: list[dict] = []
+    for f in features:
+        props = f.get("properties", {})
+        for parcel in props.get("land_parcels", []):
+            all_parcels.append(
+                {
+                    **parcel,
+                    "hex_score": props.get("pressure_score", 0),
+                    "hex_status": props.get("development_status", ""),
+                    "hex_dist": props.get("distance_to_campus_miles", 0),
+                }
+            )
+
+    if all_parcels:
+        top_parcels = sorted(
+            all_parcels, key=lambda p: p.get("lot_size_acres", 0), reverse=True
+        )[:20]
+        lines += ["", f"LAND PARCELS ({len(all_parcels)} total, top 20 by size):"]
+        for p in top_parcels:
+            parts = [f"  {p.get('address', 'Unknown')}"]
+            parts.append(f"{p.get('lot_size_acres', 0):.2f}ac")
+            parts.append(f"mkt=${p.get('market_value', 0):,.0f}")
+            parts.append(f"land=${p.get('land_value', 0):,.0f}")
+            parts.append(f"owner={p.get('owner_name', '?')}")
+            if p.get("is_absentee"):
+                parts.append("ABSENTEE")
+            parts.append(f"use={p.get('land_use', '?')}")
+            parts.append(
+                f"(hex: score={p['hex_score']:.0f}, "
+                f"{p['hex_dist']:.1f}mi, {p['hex_status']})"
+            )
+            lines.append(", ".join(parts))
+
+    return "\n".join(lines)
+
+
+def _resolve_unitid(
+    university_name: str,
+    all_scores: dict[int, HousingPressureScore] | None,
+) -> int | None:
+    """Resolve a university name to a unitid using fuzzy matching."""
+    if not all_scores:
+        return None
+    query = university_name.lower()
+    # Exact substring match first
+    for uid, s in all_scores.items():
+        if query in s.university.name.lower():
+            return uid
+    # Reverse: full name contains query words
+    query_words = set(query.split())
+    for uid, s in all_scores.items():
+        name_lower = s.university.name.lower()
+        if all(w in name_lower for w in query_words):
+            return uid
+    # Word-overlap match: all query words present in name
+    for uid, s in all_scores.items():
+        name_words = set(s.university.name.lower().split())
+        if query_words and query_words.issubset(name_words):
+            return uid
+    return None
+
+
+def _find_hex_for_university(
+    university_name: str,
+    all_scores: dict[int, HousingPressureScore] | None,
+    hex_cache: dict | None,
+    unitid: int | None = None,
+) -> dict | None:
+    """Find hex GeoJSON for a university from the memory cache."""
+    if not hex_cache:
+        return None
+
+    # Direct unitid lookup (fastest path)
+    if unitid is not None:
+        for key, data in hex_cache.items():
+            if key[0] == unitid:
+                return data
+
+    # Resolve unitid from name
+    resolved = _resolve_unitid(university_name, all_scores)
+    if resolved is not None:
+        for key, data in hex_cache.items():
+            if key[0] == resolved:
+                return data
+
+    # Fallback: search hex cache metadata for university name
+    query = university_name.lower()
+    for _key, data in hex_cache.items():
+        meta = data.get("metadata", {})
+        cached_name = meta.get("university", "").lower()
+        if cached_name and (query in cached_name or cached_name in query):
+            return data
+        # Word overlap on metadata name
+        if cached_name:
+            query_words = set(query.split())
+            name_words = set(cached_name.split())
+            if query_words and len(query_words & name_words) >= len(query_words) * 0.6:
+                return data
+
+    return None
+
+
+def _build_selected_hex_context(hex_props: dict) -> str:
+    """Build context string for the user's currently selected/clicked hex cell."""
+    lines = ["\n=== CURRENTLY SELECTED HEX (user is looking at this hex) ==="]
+
+    if hex_props.get("hex_number") is not None:
+        lines.append(f"Hex #{hex_props['hex_number']}")
+    if hex_props.get("h3_index"):
+        lines.append(f"H3 Index: {hex_props['h3_index']}")
+    lines.append(f"Pressure Score: {hex_props.get('pressure_score', 'N/A')}/100")
+    if hex_props.get("raw_pressure_score") is not None:
+        lines.append(f"Raw Pressure Score: {hex_props['raw_pressure_score']}/100")
+    lines.append(f"Development Status: {hex_props.get('development_status', 'Unknown')}")
+    lines.append(f"Buildable: {'Yes' if hex_props.get('buildable_for_housing') else 'No'}")
+    if hex_props.get("buildability_score") is not None:
+        lines.append(f"Buildability Score: {hex_props['buildability_score']}/100")
+    lines.append(
+        f"Distance: {hex_props.get('distance_to_campus_miles', 'N/A')} miles from campus"
+    )
+    lines.append(f"Transit: {hex_props.get('transit_label', 'N/A')} ({hex_props.get('bus_stop_count', 0)} stops)")
+    lines.append(f"Permit Density: {hex_props.get('permit_density', 0):.2f}/km2")
+    lines.append(f"Unit Density: {hex_props.get('unit_density', 0):.0f}/km2")
+
+    # Zoning
+    if hex_props.get("zoning_code"):
+        lines.append(
+            f"Zoning: {hex_props['zoning_code']}"
+            f" — {hex_props.get('zoning_label', 'N/A')}"
+            f" (PBSH signal: {hex_props.get('zoning_pbsh_signal', 'N/A')})"
+        )
+
+    # Coverage percentages
+    coverage = hex_props.get("coverage_pct")
+    if coverage and isinstance(coverage, dict):
+        lines.append("Land Use Coverage:")
+        for use_type, pct in sorted(coverage.items(), key=lambda x: -x[1]):
+            if pct > 0:
+                lines.append(f"  {use_type}: {pct:.1f}%")
+
+    # Land parcels
+    parcels = hex_props.get("land_parcels", [])
+    if parcels:
+        lines.append(f"\nLand Parcels in this hex ({len(parcels)}):")
+        for p in parcels:
+            parts = [f"  {p.get('address', 'Unknown')}"]
+            parts.append(f"{p.get('lot_size_acres', 0):.2f}ac")
+            parts.append(f"mkt=${p.get('market_value', 0):,.0f}")
+            parts.append(f"land=${p.get('land_value', 0):,.0f}")
+            parts.append(f"owner={p.get('owner_name', '?')}")
+            if p.get("is_absentee"):
+                parts.append("ABSENTEE")
+            parts.append(f"use={p.get('land_use', '?')}")
+            lines.append(", ".join(parts))
+
+    # Classification
+    if hex_props.get("classification_reason_codes"):
+        lines.append(f"Classification reasons: {', '.join(hex_props['classification_reason_codes'])}")
+    if hex_props.get("dominant_land_use"):
+        lines.append(f"Dominant land use: {hex_props['dominant_land_use']}")
+
+    return "\n".join(lines)
 
 
 def _lookup_university_data(
     name: str,
-    all_scores: dict[int, "HousingPressureScore"] | None,
+    all_scores: dict[int, HousingPressureScore] | None,
 ) -> str:
-    """Search prescored cache by name and return a market snapshot."""
+    """Search scored universities by name and return a comprehensive snapshot."""
     if not all_scores:
         return json.dumps({"error": "No university data available in database"})
 
-    query = name.lower()
-    for _uid, score in all_scores.items():
-        if query in score.university.name.lower():
-            return _build_score_snapshot(score.university.name, score)
+    uid = _resolve_unitid(name, all_scores)
+    if uid is not None:
+        score = all_scores[uid]
+        return _build_score_snapshot(score.university.name, score)
 
-    return json.dumps({"error": f"University '{name}' not found in database. Available universities may not have been scored yet."})
+    return json.dumps(
+        {
+            "error": f"University '{name}' not found in database. "
+            "Use score_new_university to analyze it."
+        }
+    )
+
+
+def _lookup_hex_data(
+    name: str,
+    all_scores: dict[int, HousingPressureScore] | None,
+    hex_cache: dict | None,
+) -> str:
+    """Look up hex grid spatial analysis for a university."""
+    geojson = _find_hex_for_university(name, all_scores, hex_cache)
+    if geojson:
+        return _build_hex_summary(geojson, name)
+    return json.dumps(
+        {
+            "error": f"No hex grid data loaded for '{name}'. "
+            "Hex data is generated when viewing a university on the map "
+            "at city zoom level."
+        }
+    )
 
 
 async def answer_chat_query(
@@ -197,9 +607,13 @@ async def answer_chat_query(
     uni_name: str | None,
     active_score: HousingPressureScore | None,
     all_scores: dict[int, "HousingPressureScore"] | None = None,
+    hex_cache: dict | None = None,
+    score_callback=None,
+    selected_hex: dict | None = None,
 ) -> str:
+    """Answer a chat query with full database access, hex data, and scoring capability."""
     if not config.gemini_api_key:
-        return "I'm sorry, my real AI capabilities aren't configured yet (missing Gemini API key)."
+        return "AI capabilities aren't configured (missing Gemini API key)."
 
     try:
         from google import genai
@@ -209,51 +623,122 @@ async def answer_chat_query(
 
     client = genai.Client(api_key=config.gemini_api_key)
 
-    # ── System prompt with available universities ──
-    system_instruction = _CHAT_SYSTEM_PROMPT
+    # ── Build system prompt with injected context ──
+    system_parts = [_CHAT_SYSTEM_PROMPT]
 
     if all_scores:
         lines = []
         for uid, s in all_scores.items():
             label = "High" if s.score >= 70 else "Medium" if s.score >= 40 else "Low"
-            lines.append(f"  - {s.university.name} ({s.university.city}, {s.university.state}) — {s.score:.0f}/100 [{label}]")
-        uni_list = "\n".join(sorted(lines))
-        system_instruction += f"\n\nUNIVERSITIES IN DATABASE ({len(all_scores)} total):\n{uni_list}\n"
+            lines.append(
+                f"  - {s.university.name} ({s.university.city}, {s.university.state})"
+                f" — {s.score:.0f}/100 [{label}]"
+            )
+        system_parts.append(
+            f"\nUNIVERSITIES IN DATABASE ({len(all_scores)} scored):\n"
+            + "\n".join(sorted(lines))
+        )
 
     if uni_name and active_score:
-        system_instruction += f"\n[CURRENTLY SELECTED] {uni_name}\n"
-        system_instruction += _build_score_snapshot(uni_name, active_score)
+        system_parts.append("\n[CURRENTLY SELECTED UNIVERSITY]")
+        system_parts.append(_build_score_snapshot(uni_name, active_score))
 
-    # ── Tool definition: lookup_university ──
-    lookup_tool = types.Tool(
-        function_declarations=[
-            types.FunctionDeclaration(
-                name="lookup_university",
-                description="Look up detailed housing market data for any university in the CampusLens database. Use this when the user asks about a university other than the currently selected one, or when comparing universities.",
-                parameters=types.Schema(
-                    type=types.Type.OBJECT,
-                    properties={
-                        "university_name": types.Schema(
-                            type=types.Type.STRING,
-                            description="Name of the university to look up (e.g. 'Ohio State University')",
-                        ),
-                    },
-                    required=["university_name"],
-                ),
+    # Auto-include hex data for the currently selected university
+    if hex_cache and active_score:
+        hex_geojson = _find_hex_for_university(
+            uni_name or "",
+            all_scores,
+            hex_cache,
+            unitid=active_score.university.unitid,
+        )
+        if hex_geojson:
+            system_parts.append(_build_hex_summary(hex_geojson, uni_name or ""))
+    elif hex_cache and uni_name:
+        hex_geojson = _find_hex_for_university(uni_name, all_scores, hex_cache)
+        if hex_geojson:
+            system_parts.append(_build_hex_summary(hex_geojson, uni_name))
+
+    # Include currently selected hex cell if provided
+    if selected_hex:
+        system_parts.append(_build_selected_hex_context(selected_hex))
+
+    system_instruction = "\n".join(system_parts)
+
+    # ── Tool definitions ──
+    tool_declarations = [
+        types.FunctionDeclaration(
+            name="lookup_university",
+            description=(
+                "Look up detailed housing market data for any university in the "
+                "CampusLens database. Use when the user asks about a university "
+                "other than the currently selected one, or when comparing markets."
             ),
-        ],
-    )
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "university_name": types.Schema(
+                        type=types.Type.STRING,
+                        description="Name of the university to look up",
+                    ),
+                },
+                required=["university_name"],
+            ),
+        ),
+        types.FunctionDeclaration(
+            name="lookup_hex_data",
+            description=(
+                "Look up H3 hexagonal grid spatial analysis for a university. "
+                "Returns development status, buildability, transit access, zoning, "
+                "and land parcel data for hex cells around campus. Only available "
+                "for universities whose hex data has been loaded on the map."
+            ),
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "university_name": types.Schema(
+                        type=types.Type.STRING,
+                        description="Name of the university",
+                    ),
+                },
+                required=["university_name"],
+            ),
+        ),
+        types.FunctionDeclaration(
+            name="score_new_university",
+            description=(
+                "Score and analyze a university that is NOT yet in the database. "
+                "Runs the full data pipeline (enrollment, permits, rent, demographics, "
+                "housing, institutional data) which takes about 30 seconds. The scored "
+                "data is added to the database for future queries. Use when asked about "
+                "a university not in the database list."
+            ),
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "university_name": types.Schema(
+                        type=types.Type.STRING,
+                        description="Full name of the university to score",
+                    ),
+                },
+                required=["university_name"],
+            ),
+        ),
+    ]
+
+    tool_config = types.Tool(function_declarations=tool_declarations)
 
     contents = []
     for msg in messages:
         gemini_role = "model" if msg.role == "assistant" else msg.role
         contents.append(
-            types.Content(role=gemini_role, parts=[types.Part.from_text(text=msg.content)])
+            types.Content(
+                role=gemini_role, parts=[types.Part.from_text(text=msg.content)]
+            )
         )
 
     gen_config = types.GenerateContentConfig(
         system_instruction=system_instruction,
-        tools=[lookup_tool],
+        tools=[tool_config],
         temperature=0.4,
     )
 
@@ -264,8 +749,8 @@ async def answer_chat_query(
             config=gen_config,
         )
 
-        # Handle function-calling loop (max 5 rounds)
-        for _ in range(5):
+        # Handle function-calling loop (max 8 rounds for multi-step reasoning)
+        for _ in range(8):
             candidate = response.candidates[0]
             fn_calls = [p for p in candidate.content.parts if p.function_call]
             if not fn_calls:
@@ -276,15 +761,53 @@ async def answer_chat_query(
             fn_response_parts = []
             for part in fn_calls:
                 fc = part.function_call
+                result = ""
+
                 if fc.name == "lookup_university":
                     result = _lookup_university_data(
                         fc.args.get("university_name", ""), all_scores
                     )
-                    fn_response_parts.append(
-                        types.Part.from_function_response(
-                            name=fc.name, response={"result": result}
-                        )
+                elif fc.name == "lookup_hex_data":
+                    result = _lookup_hex_data(
+                        fc.args.get("university_name", ""),
+                        all_scores,
+                        hex_cache,
                     )
+                elif fc.name == "score_new_university":
+                    uni_to_score = fc.args.get("university_name", "")
+                    if score_callback:
+                        try:
+                            new_score = await score_callback(uni_to_score)
+                            if new_score:
+                                result = (
+                                    "Successfully scored! Data is now in the database.\n"
+                                    + _build_score_snapshot(
+                                        new_score.university.name, new_score
+                                    )
+                                )
+                            else:
+                                result = json.dumps(
+                                    {
+                                        "error": f"Could not find or score '{uni_to_score}'. "
+                                        "The university may not exist in the College Scorecard database."
+                                    }
+                                )
+                        except Exception as exc:
+                            result = json.dumps(
+                                {"error": f"Scoring failed: {exc}"}
+                            )
+                    else:
+                        result = json.dumps(
+                            {"error": "Scoring capability not available."}
+                        )
+                else:
+                    result = json.dumps({"error": f"Unknown tool: {fc.name}"})
+
+                fn_response_parts.append(
+                    types.Part.from_function_response(
+                        name=fc.name, response={"result": result}
+                    )
+                )
 
             contents.append(types.Content(parts=fn_response_parts))
 

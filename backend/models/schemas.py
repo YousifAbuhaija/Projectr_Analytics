@@ -208,6 +208,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     selectedName: str | None = None
     activeScore: HousingPressureScore | None = None
+    selectedHex: dict | None = None
 
 
 class UniversityListItem(BaseModel):

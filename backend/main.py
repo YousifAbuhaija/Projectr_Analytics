@@ -118,13 +118,29 @@ app.add_middleware(
 
 @app.post("/chat")
 async def chat_with_agent(req: ChatRequest):
-    """Answers a chat query via Gemini 2.5 Flash with full DB access."""
+    """Answers a chat query via Gemini 2.5 Flash with full DB access, hex data, and scoring."""
+
+    async def _score_for_chat(name: str) -> HousingPressureScore | None:
+        """Run the full scoring pipeline for a university not yet in the DB."""
+        try:
+            result = await score_university(ScoreRequest(university_name=name))
+            # score_university already persists to _prescored and Firestore
+            return result
+        except HTTPException:
+            return None
+        except Exception as exc:
+            print(f"[/chat] score_for_chat failed: {exc}")
+            return None
+
     try:
         response_text = await answer_chat_query(
             messages=req.messages,
             uni_name=req.selectedName,
             active_score=req.activeScore,
             all_scores=_prescored,
+            hex_cache=_hex_response_cache,
+            score_callback=_score_for_chat,
+            selected_hex=req.selectedHex,
         )
         return {"response": response_text}
     except Exception as exc:
@@ -289,7 +305,8 @@ async def score_university(req: ScoreRequest):
     if summary:
         result = result.model_copy(update={"gemini_summary": summary})
 
-    # Persist to Firestore
+    # Persist to Firestore + in-memory cache
+    _prescored[uni.unitid] = result
     await db.set_score(uni.unitid, json.loads(result.model_dump_json()))
 
     return result

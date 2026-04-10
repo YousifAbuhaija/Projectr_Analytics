@@ -669,6 +669,14 @@ async def get_hex_grid(
         _register_hex_cache(cache_key, fs_hit, compressed)
         return _hex_bytes_response(compressed)
 
+    # ── Fallback: serve ANY previously computed version for this university ──
+    # Better to show slightly stale hexes instantly than make the user wait 60s.
+    stale_hit = await db.get_hex_any_version(uni.unitid)
+    if stale_hit:
+        compressed = _slim_hex_bytes(stale_hit)
+        _register_hex_cache(cache_key, stale_hit, compressed)
+        return _hex_bytes_response(compressed)
+
     # ── Generate hex grid ──
     hex_indices = generate_campus_hex_grid(
         campus_lat=uni.lat,

@@ -183,12 +183,14 @@ export function HexChoropleth({
   onViewAllParcels,
   onHexSelect,
   focusHexId,
+  is3D = false,
 }: {
   hexData: HexGeoJSON;
   maxDistanceMiles?: number;
   onViewAllParcels?: (parcels: LandParcelItem[], label: string) => void;
   onHexSelect?: (hex: HexFeatureProperties | null) => void;
   focusHexId?: string | null;
+  is3D?: boolean;
 }) {
   const map = useMap();
   const overlayRef = useRef<GoogleMapsOverlay | null>(null);
@@ -233,29 +235,45 @@ export function HexChoropleth({
     };
   }, [map]);
 
-  // Update deck.gl layers when hex data changes
+  // Tilt the map camera when switching between 2D / 3D modes
+  useEffect(() => {
+    if (!map) return;
+    (map as unknown as google.maps.Map).setTilt(is3D ? 45 : 0);
+  }, [map, is3D]);
+
+  // Update deck.gl layers when hex data or 3D mode changes
   useEffect(() => {
     if (!overlayRef.current || !filteredFeatures.length) {
       overlayRef.current?.setProps({ layers: [] });
       return;
     }
+    const opacity = is3D ? 0.8 : 0.45;
     const hexLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
       id: "hex-choropleth",
       data: filteredFeatures,
       getHexagon: (d) => d.properties.h3_index,
       getFillColor: (d) =>
-        hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", 0.45),
+        hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", opacity),
       filled: true,
       stroked: false,
       pickable: true,
+      // 3D extrusion — height proportional to pressure_score (0–100 → 0–30 000 m display units)
+      extruded: is3D,
+      getElevation: is3D
+        ? (d) => d.properties.pressure_score * 300
+        : undefined,
+      elevationScale: 1,
+      material: is3D
+        ? { ambient: 0.4, diffuse: 0.7, shininess: 24, specularColor: [40, 40, 40] }
+        : undefined,
       onClick: (info) => {
         if (info.object) setSelectedHex(info.object.properties);
       },
       highPrecision: true,
-      updateTriggers: { getFillColor: [hexData] },
+      updateTriggers: { getFillColor: [hexData, is3D], getElevation: [is3D] },
     });
     overlayRef.current.setProps({ layers: [hexLayer] });
-  }, [filteredFeatures, hexData]);
+  }, [filteredFeatures, hexData, is3D]);
 
   // External hex selection (e.g. from chat agent)
   useEffect(() => {

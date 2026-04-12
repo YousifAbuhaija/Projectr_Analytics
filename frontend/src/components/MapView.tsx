@@ -314,6 +314,9 @@ function RecenterButton({
   onZoomOut,
   onReturnToCampus,
   onForceNational,
+  is3DMode,
+  onToggle3D,
+  hasHexData,
 }: {
   selectedName: string | null;
   selectedCoords?: { lat: number; lng: number } | null;
@@ -322,6 +325,9 @@ function RecenterButton({
   onZoomOut?: () => void;
   onReturnToCampus?: () => void;
   onForceNational?: () => void;
+  is3DMode?: boolean;
+  onToggle3D?: () => void;
+  hasHexData?: boolean;
 }) {
   const map = useMap();
 
@@ -354,9 +360,24 @@ function RecenterButton({
     "w-10 h-10 bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 rounded-xl " +
     "flex items-center justify-center text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm";
 
+  const btn3DClass =
+    "w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-lg backdrop-blur-sm text-xs font-bold " +
+    (is3DMode
+      ? "bg-blue-600 border border-blue-400 text-white"
+      : "bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 text-zinc-400 hover:text-white");
+
   return (
     <MapControl position={ControlPosition.RIGHT_BOTTOM}>
       <div className="mb-3 mr-3 flex flex-col gap-2">
+        {hasHexData && (
+          <button
+            className={btn3DClass}
+            onClick={onToggle3D}
+            title={is3DMode ? "Switch to flat map" : "Switch to 3D view"}
+          >
+            3D
+          </button>
+        )}
         <button
           className={btnClass}
           onClick={() => map?.setZoom((map.getZoom() ?? 10) + 1)}
@@ -734,6 +755,7 @@ export function MapView({
   const [hoveredName, setHoveredName] = useState<string | null>(null);
   const [forceNational, setForceNational] = useState(false);
   const [localZoom, setLocalZoom] = useState(14);
+  const [is3DMode, setIs3DMode] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Filter state ────────────────────────────────────────────────────────────
@@ -823,6 +845,9 @@ export function MapView({
           onZoomOut={onZoomOut}
           onReturnToCampus={() => setForceNational(false)}
           onForceNational={() => setForceNational(true)}
+          is3DMode={is3DMode}
+          onToggle3D={() => setIs3DMode((v) => !v)}
+          hasHexData={!!activeHexData}
         />
         <ZoomTracker onZoomChange={handleZoomUpdate} />
         {/* Loading phantom hex grid — anchored to map coordinates, moves with pan/zoom */}
@@ -836,6 +861,7 @@ export function MapView({
             onViewAllParcels={onViewAllParcels}
             onHexSelect={onHexSelect}
             focusHexId={focusHexId}
+            is3D={is3DMode}
           />
         )}
 

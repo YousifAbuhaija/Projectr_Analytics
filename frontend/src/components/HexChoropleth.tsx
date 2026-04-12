@@ -247,7 +247,7 @@ export function HexChoropleth({
       overlayRef.current?.setProps({ layers: [] });
       return;
     }
-    const opacity = is3D ? 0.8 : 0.45;
+    const opacity = is3D ? 0.85 : 0.45;
     const hexLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
       id: "hex-choropleth",
       data: filteredFeatures,
@@ -257,15 +257,14 @@ export function HexChoropleth({
       filled: true,
       stroked: false,
       pickable: true,
-      // 3D extrusion — height proportional to pressure_score (0–100 → 0–30 000 m display units)
+      // 3D extrusion — height proportional to pressure_score.
+      // H3 res-9 hex edge ≈ 174 m, so score × 5 gives max ~500 m at score=100,
+      // producing clearly visible but non-overwhelming columns at campus zoom.
       extruded: is3D,
       getElevation: is3D
-        ? (d) => d.properties.pressure_score * 300
+        ? (d) => d.properties.pressure_score * 5
         : undefined,
       elevationScale: 1,
-      material: is3D
-        ? { ambient: 0.4, diffuse: 0.7, shininess: 24, specularColor: [40, 40, 40] }
-        : undefined,
       onClick: (info) => {
         if (info.object) setSelectedHex(info.object.properties);
       },

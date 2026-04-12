@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import { GoogleMapsOverlay } from "@deck.gl/google-maps";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
+import { ColumnLayer } from "deck.gl";
 import type { HexGeoJSON, HexFeatureProperties } from "../lib/hexApi";
 import { detectPBSHFromParcels } from "../lib/pbshOperators";
 
@@ -32,6 +33,15 @@ const LABEL_COLORS: Record<string, string> = {
   medium: "#eab308",
   low: "#60a5fa",
 };
+
+// Labels that represent actionable/buildable land — these get 3D columns.
+// Non-buildable labels (campus, protected, constrained, developed, zoning_blocked)
+// stay flat so they don't crowd the 3D view.
+const BUILDABLE_LABELS = new Set([
+  "prime", "opportunity", "emerging", "open_land",
+  // legacy aliases
+  "high", "medium", "low",
+]);
 
 // One-sentence plain-English verdict for the InfoWindow.
 function hexVerdict(
@@ -259,37 +269,67 @@ export function HexChoropleth({
     }
   }, [map, is3D]);
 
-  // Update deck.gl layers when hex data or 3D mode changes
+  // Update deck.gl layers when hex data or 3D mode changes.
+  // In 3D mode: split into two layers —
+  //   1. flat base (all hexes, low opacity) for land-classification context
+  //   2. narrow hexagonal columns (buildable hexes only) whose height = pressure_score
+  // This keeps the map visible between bars and avoids the "crowded wall" effect.
   useEffect(() => {
     if (!overlayRef.current || !filteredFeatures.length) {
       overlayRef.current?.setProps({ layers: [] });
       return;
     }
-    const opacity = is3D ? 0.85 : 0.45;
-    const hexLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
-      id: "hex-choropleth",
+
+    // Layer 1: flat base — all hexes for land-type context
+    const baseOpacity = is3D ? 0.20 : 0.45;
+    const baseLayer = new H3HexagonLayer<(typeof filteredFeatures)[number]>({
+      id: "hex-base",
       data: filteredFeatures,
       getHexagon: (d) => d.properties.h3_index,
       getFillColor: (d) =>
-        hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", opacity),
+        hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", baseOpacity),
       filled: true,
       stroked: false,
+      extruded: false,
       pickable: true,
-      // 3D extrusion — height proportional to pressure_score.
-      // score × 30 → ~1900 m for a score-64 campus at zoom 14 with 45° tilt,
-      // giving clearly visible columns (~135 px tall on screen) per hex.
-      extruded: is3D,
-      getElevation: is3D
-        ? (d) => d.properties.pressure_score * 30
-        : undefined,
-      elevationScale: 1,
       onClick: (info) => {
         if (info.object) setSelectedHex(info.object.properties);
       },
       highPrecision: true,
-      updateTriggers: { getFillColor: [hexData, is3D], getElevation: [is3D] },
+      updateTriggers: { getFillColor: [hexData, is3D] },
     });
-    overlayRef.current.setProps({ layers: [hexLayer] });
+
+    // Layer 2 (3D only): hexagonal prism columns for buildable hexes
+    // radius 70 m ≈ 1/3 of H3 res-9 circumradius (201 m) — fits cleanly inside each hex
+    // height = pressure_score × 30 m → ~1900 m for score=64 at campus zoom + 45° tilt
+    const buildableFeatures = filteredFeatures.filter((f) =>
+      BUILDABLE_LABELS.has(f.properties.label),
+    );
+    type BuildableFeature = (typeof buildableFeatures)[number];
+
+    const columnLayer =
+      is3D && buildableFeatures.length > 0
+        ? new ColumnLayer<BuildableFeature>({
+            id: "hex-columns",
+            data: buildableFeatures,
+            diskResolution: 6,
+            radius: 70,
+            extruded: true,
+            getPosition: (d) => [d.properties.center_lng, d.properties.center_lat],
+            getElevation: (d) => d.properties.pressure_score * 30,
+            getFillColor: (d) =>
+              hexToRgba(LABEL_COLORS[d.properties.label] ?? "#60a5fa", 0.90),
+            pickable: true,
+            onClick: (info) => {
+              if (info.object) setSelectedHex(info.object.properties);
+            },
+            updateTriggers: { getFillColor: [hexData], getElevation: [hexData] },
+          })
+        : null;
+
+    overlayRef.current.setProps({
+      layers: columnLayer ? [baseLayer, columnLayer] : [baseLayer],
+    });
   }, [filteredFeatures, hexData, is3D]);
 
   // External hex selection (e.g. from chat agent)

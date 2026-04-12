@@ -16,6 +16,8 @@ import {
   X,
   ChevronDown,
 } from "lucide-react";
+import { GoogleMapsOverlay } from "@deck.gl/google-maps";
+import { ColumnLayer } from "deck.gl";
 import { HexChoropleth } from "./HexChoropleth";
 import { UNIVERSITIES } from "../lib/universityList";
 import type { UniversitySuggestion } from "../lib/universityList";
@@ -304,6 +306,102 @@ function CameraController({
   return null;
 }
 
+// ── NationalSpikeLayer ────────────────────────────────────────────────────────
+// Deck.GL ColumnLayer rendered over the national map when 3D spike mode is on.
+// Each university with a computed score gets a cylinder whose height ∝ score.
+
+type SpikeItem = {
+  name: string;
+  position: [number, number]; // [lon, lat]
+  score: number;
+  enrollment: number;
+};
+
+function scoreRgba(score: number): [number, number, number, number] {
+  if (score >= 70) return [34, 197, 94, 210];  // green
+  if (score >= 40) return [245, 158, 11, 210]; // amber
+  return [239, 68, 68, 210];                   // red
+}
+
+function NationalSpikeLayer({
+  scoreCache,
+  filteredUniversities,
+  onPinClick,
+  isVisible,
+}: {
+  scoreCache: Record<string, HousingPressureScore>;
+  filteredUniversities: UniversitySuggestion[];
+  onPinClick: (name: string, coords: { lat: number; lng: number }) => void;
+  isVisible: boolean;
+}) {
+  const map = useMap();
+  const overlayRef = useRef<GoogleMapsOverlay | null>(null);
+
+  const spikeData = useMemo<SpikeItem[]>(
+    () =>
+      filteredUniversities
+        .filter((u) => scoreCache[u.name])
+        .map((u) => ({
+          name: u.name,
+          position: [u.lon, u.lat],
+          score: scoreCache[u.name].score,
+          enrollment: scoreCache[u.name].university.enrollment ?? 0,
+        })),
+    [scoreCache, filteredUniversities],
+  );
+
+  // Mount overlay once
+  useEffect(() => {
+    if (!map) return;
+    if (!overlayRef.current) {
+      overlayRef.current = new GoogleMapsOverlay({ interleaved: false });
+      overlayRef.current.setMap(map as unknown as google.maps.Map);
+    }
+    return () => {
+      overlayRef.current?.setMap(null);
+      overlayRef.current?.finalize();
+      overlayRef.current = null;
+    };
+  }, [map]);
+
+  // Tilt map camera when entering/leaving spike mode
+  useEffect(() => {
+    if (!map) return;
+    (map as unknown as google.maps.Map).setTilt(isVisible ? 45 : 0);
+  }, [map, isVisible]);
+
+  // Update column layer when data or visibility changes
+  useEffect(() => {
+    if (!overlayRef.current) return;
+    if (!isVisible || !spikeData.length) {
+      overlayRef.current.setProps({ layers: [] });
+      return;
+    }
+    const layer = new ColumnLayer<SpikeItem>({
+      id: "national-spike-map",
+      data: spikeData,
+      diskResolution: 8,
+      radius: 20000, // 20 km — visible at national zoom
+      extruded: true,
+      // Height: score × 3 000 → max 300 000 m (300 km) for score=100
+      getElevation: (d) => d.score * 3000,
+      getPosition: (d) => d.position,
+      getFillColor: (d) => scoreRgba(d.score),
+      pickable: true,
+      onClick: (info) => {
+        if (!info.object) return;
+        const u = filteredUniversities.find((u) => u.name === info.object!.name);
+        if (u) onPinClick(u.name, { lat: u.lat, lng: u.lon });
+      },
+      material: { ambient: 0.35, diffuse: 0.65, shininess: 32, specularColor: [40, 40, 40] },
+      updateTriggers: { getFillColor: [spikeData], getElevation: [spikeData] },
+    });
+    overlayRef.current.setProps({ layers: [layer] });
+  }, [spikeData, isVisible, filteredUniversities, onPinClick]);
+
+  return null;
+}
+
 // ── RecenterButton ────────────────────────────────────────────────────────────
 
 function RecenterButton({
@@ -314,6 +412,9 @@ function RecenterButton({
   onZoomOut,
   onReturnToCampus,
   onForceNational,
+  is3DSpike,
+  onToggle3DSpike,
+  hasScoredUniversities,
 }: {
   selectedName: string | null;
   selectedCoords?: { lat: number; lng: number } | null;
@@ -322,6 +423,9 @@ function RecenterButton({
   onZoomOut?: () => void;
   onReturnToCampus?: () => void;
   onForceNational?: () => void;
+  is3DSpike?: boolean;
+  onToggle3DSpike?: () => void;
+  hasScoredUniversities?: boolean;
 }) {
   const map = useMap();
 
@@ -354,9 +458,24 @@ function RecenterButton({
     "w-10 h-10 bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 rounded-xl " +
     "flex items-center justify-center text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm";
 
+  const btn3DClass =
+    "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold transition-all shadow-lg backdrop-blur-sm " +
+    (is3DSpike
+      ? "bg-blue-600 border border-blue-400 text-white"
+      : "bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 text-zinc-400 hover:text-white");
+
   return (
     <MapControl position={ControlPosition.RIGHT_BOTTOM}>
       <div className="mb-3 mr-3 flex flex-col gap-2">
+        {hasScoredUniversities && (
+          <button
+            className={btn3DClass}
+            onClick={onToggle3DSpike}
+            title={is3DSpike ? "Switch to flat map" : "Switch to 3D spike map"}
+          >
+            3D
+          </button>
+        )}
         <button
           className={btnClass}
           onClick={() => map?.setZoom((map.getZoom() ?? 10) + 1)}
@@ -734,6 +853,7 @@ export function MapView({
   const [hoveredName, setHoveredName] = useState<string | null>(null);
   const [forceNational, setForceNational] = useState(false);
   const [localZoom, setLocalZoom] = useState(14);
+  const [is3DSpike, setIs3DSpike] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Filter state ────────────────────────────────────────────────────────────
@@ -823,8 +943,17 @@ export function MapView({
           onZoomOut={onZoomOut}
           onReturnToCampus={() => setForceNational(false)}
           onForceNational={() => setForceNational(true)}
+          is3DSpike={is3DSpike}
+          onToggle3DSpike={() => setIs3DSpike((v) => !v)}
+          hasScoredUniversities={Object.keys(scoreCache).length > 0}
         />
         <ZoomTracker onZoomChange={handleZoomUpdate} />
+        <NationalSpikeLayer
+          scoreCache={scoreCache}
+          filteredUniversities={filteredUniversities}
+          onPinClick={onPinClick}
+          isVisible={is3DSpike}
+        />
         {/* Loading phantom hex grid — anchored to map coordinates, moves with pan/zoom */}
         {isHexLoading && localZoom >= 11 && selectedCoords && (
           <HexLoadingGrid lat={selectedCoords.lat} lng={selectedCoords.lng} />

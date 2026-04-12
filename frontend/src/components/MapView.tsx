@@ -763,6 +763,20 @@ export function MapView({
   const [forceNational, setForceNational] = useState(false);
   const [localZoom, setLocalZoom] = useState(14);
   const [is3DMode, setIs3DMode] = useState(false);
+  // 'idle' = off, 'loading' = waiting for hybrid tiles + tilt, 'timeout' = took > 12 s
+  const [tiltStatus, setTiltStatus] = useState<"idle" | "loading" | "timeout">("idle");
+  const tiltTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (tiltTimeoutRef.current) clearTimeout(tiltTimeoutRef.current);
+    if (is3DMode) {
+      setTiltStatus("loading");
+      tiltTimeoutRef.current = setTimeout(() => setTiltStatus("timeout"), 12000);
+    } else {
+      setTiltStatus("idle");
+    }
+    return () => { if (tiltTimeoutRef.current) clearTimeout(tiltTimeoutRef.current); };
+  }, [is3DMode]);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Filter state ────────────────────────────────────────────────────────────
@@ -870,6 +884,10 @@ export function MapView({
             onHexSelect={onHexSelect}
             focusHexId={focusHexId}
             is3D={is3DMode}
+            onTiltReady={() => {
+              if (tiltTimeoutRef.current) clearTimeout(tiltTimeoutRef.current);
+              setTiltStatus("idle");
+            }}
           />
         )}
 
@@ -964,6 +982,28 @@ export function MapView({
           );
         })}
       </Map>
+
+      {/* 3D tilt status indicator — top-center */}
+      {tiltStatus !== "idle" && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg backdrop-blur-sm pointer-events-none select-none"
+          style={tiltStatus === "timeout"
+            ? { background: "rgba(69,10,10,0.95)", border: "1px solid #7f1d1d" }
+            : { background: "rgba(9,9,11,0.95)", border: "1px solid #3f3f46" }
+          }
+        >
+          {tiltStatus === "loading" ? (
+            <>
+              <span className="w-3 h-3 rounded-full border-2 border-zinc-600 border-t-blue-400 animate-spin shrink-0" />
+              <span className="text-xs text-zinc-300">Switching to 3D view…</span>
+            </>
+          ) : (
+            <>
+              <span className="text-xs">⚠</span>
+              <span className="text-xs text-red-300">3D tiles didn't load — try zooming in or refreshing</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Top-left: filters + radius slider stacked */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">

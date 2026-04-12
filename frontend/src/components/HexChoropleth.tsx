@@ -184,6 +184,7 @@ export function HexChoropleth({
   onHexSelect,
   focusHexId,
   is3D = false,
+  onTiltReady,
 }: {
   hexData: HexGeoJSON;
   maxDistanceMiles?: number;
@@ -191,6 +192,7 @@ export function HexChoropleth({
   onHexSelect?: (hex: HexFeatureProperties | null) => void;
   focusHexId?: string | null;
   is3D?: boolean;
+  onTiltReady?: () => void;
 }) {
   const map = useMap();
   const overlayRef = useRef<GoogleMapsOverlay | null>(null);
@@ -248,6 +250,7 @@ export function HexChoropleth({
       const listener = gmap.addListener("idle", () => {
         gmap.setTilt(45);
         google.maps.event.removeListener(listener);
+        onTiltReady?.();
       });
       return () => google.maps.event.removeListener(listener);
     } else {

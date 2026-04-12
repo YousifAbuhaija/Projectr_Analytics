@@ -235,10 +235,19 @@ export function HexChoropleth({
     };
   }, [map]);
 
-  // Tilt the map camera when switching between 2D / 3D modes
+  // Switch to hybrid (satellite + labels) and tilt to 45° in 3D mode.
+  // Hybrid is the only raster map type that supports programmatic setTilt.
+  // Roadmap ignores setTilt, but satellite/hybrid honour it.
   useEffect(() => {
     if (!map) return;
-    (map as unknown as google.maps.Map).setTilt(is3D ? 45 : 0);
+    const gmap = map as unknown as google.maps.Map;
+    if (is3D) {
+      gmap.setMapTypeId("hybrid");
+      gmap.setTilt(45);
+    } else {
+      gmap.setMapTypeId("roadmap");
+      gmap.setTilt(0);
+    }
   }, [map, is3D]);
 
   // Update deck.gl layers when hex data or 3D mode changes
@@ -258,11 +267,11 @@ export function HexChoropleth({
       stroked: false,
       pickable: true,
       // 3D extrusion — height proportional to pressure_score.
-      // H3 res-9 hex edge ≈ 174 m, so score × 5 gives max ~500 m at score=100,
-      // producing clearly visible but non-overwhelming columns at campus zoom.
+      // score × 30 → ~1900 m for a score-64 campus at zoom 14 with 45° tilt,
+      // giving clearly visible columns (~135 px tall on screen) per hex.
       extruded: is3D,
       getElevation: is3D
-        ? (d) => d.properties.pressure_score * 5
+        ? (d) => d.properties.pressure_score * 30
         : undefined,
       elevationScale: 1,
       onClick: (info) => {

@@ -267,20 +267,24 @@ function CameraController({
   scoreCache,
   dynamicUnis,
   forceNational,
+  is3DMode,
 }: {
   selectedName: string | null;
   selectedCoords?: { lat: number; lng: number } | null;
   scoreCache: Record<string, HousingPressureScore>;
   dynamicUnis: Record<string, UniversitySuggestion>;
   forceNational?: boolean;
+  is3DMode?: boolean;
 }) {
   const map = useMap();
+  // Preserve tilt across all programmatic camera moves so 3D mode isn't reset.
+  const tilt = is3DMode ? 45 : 0;
 
   useEffect(() => {
     if (!map) return;
 
     if (forceNational || !selectedName) {
-      map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM });
+      map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM, tilt });
       return;
     }
 
@@ -290,7 +294,7 @@ function CameraController({
         : getTargetPosition(selectedName, scoreCache, dynamicUnis);
 
     if (target) {
-      map.moveCamera({ center: target, zoom: CAMPUS_ZOOM });
+      map.moveCamera({ center: target, zoom: CAMPUS_ZOOM, tilt });
     }
   }, [
     map,
@@ -299,6 +303,7 @@ function CameraController({
     scoreCache,
     dynamicUnis,
     forceNational,
+    tilt,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
@@ -331,10 +336,12 @@ function RecenterButton({
 }) {
   const map = useMap();
 
+  const tilt = is3DMode ? 45 : 0;
+
   const handleClick = () => {
     if (!map) return;
     if (!selectedName) {
-      map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM });
+      map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM, tilt });
       return;
     }
     const target =
@@ -343,16 +350,16 @@ function RecenterButton({
         : getTargetPosition(selectedName, scoreCache, dynamicUnis);
     if (target) {
       onReturnToCampus?.();
-      map.moveCamera({ center: target, zoom: CAMPUS_ZOOM });
+      map.moveCamera({ center: target, zoom: CAMPUS_ZOOM, tilt });
     } else {
-      map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM });
+      map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM, tilt });
     }
   };
 
   const handleZoomOut = () => {
     if (!map) return;
     onForceNational?.();
-    map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM });
+    map.moveCamera({ center: NATIONAL_CENTER, zoom: NATIONAL_ZOOM, tilt: 0 });
     onZoomOut?.();
   };
 
@@ -836,6 +843,7 @@ export function MapView({
           scoreCache={scoreCache}
           dynamicUnis={dynamicUnis}
           forceNational={forceNational}
+          is3DMode={is3DMode}
         />
         <RecenterButton
           selectedName={selectedName}

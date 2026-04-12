@@ -237,16 +237,22 @@ export function HexChoropleth({
 
   // Switch to hybrid (satellite + labels) and tilt to 45° in 3D mode.
   // Hybrid is the only raster map type that supports programmatic setTilt.
-  // Roadmap ignores setTilt, but satellite/hybrid honour it.
+  // setTilt must be called after the map type change settles, so we wait
+  // for the next "idle" event before applying tilt.
   useEffect(() => {
     if (!map) return;
     const gmap = map as unknown as google.maps.Map;
     if (is3D) {
       gmap.setMapTypeId("hybrid");
-      gmap.setTilt(45);
+      // Wait for the hybrid tiles to load before tilting
+      const listener = gmap.addListener("idle", () => {
+        gmap.setTilt(45);
+        google.maps.event.removeListener(listener);
+      });
+      return () => google.maps.event.removeListener(listener);
     } else {
-      gmap.setMapTypeId("roadmap");
       gmap.setTilt(0);
+      gmap.setMapTypeId("roadmap");
     }
   }, [map, is3D]);
 

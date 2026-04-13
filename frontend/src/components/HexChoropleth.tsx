@@ -247,26 +247,30 @@ export function HexChoropleth({
     };
   }, [map]);
 
-  // Switch to hybrid (satellite + labels) and tilt to 45° in 3D mode.
-  // Hybrid is the only raster map type that supports programmatic setTilt.
-  // setTilt must be called after the map type change settles, so we wait
-  // for the next "idle" event before applying tilt.
+  // Tilt the vector map to 45° in 3D mode.
+  // The <Map mapId="CampusLensMap"> component uses Google's vector renderer,
+  // which supports setTilt at ANY zoom level (unlike raster/hybrid which only
+  // tilts at zoom ≥ 12). We call setTilt immediately — no idle wait needed —
+  // because the map may already be idle when the user flips 3D on.
   useEffect(() => {
     if (!map) return;
     const gmap = map as unknown as google.maps.Map;
     if (is3D) {
-      gmap.setMapTypeId("hybrid");
-      // Wait for the hybrid tiles to load before tilting
-      const listener = gmap.addListener("idle", () => {
-        gmap.setTilt(45);
-        google.maps.event.removeListener(listener);
-        onTiltReady?.();
-      });
-      return () => google.maps.event.removeListener(listener);
+      gmap.setTilt(45);
+      onTiltReady?.();
     } else {
       gmap.setTilt(0);
-      gmap.setMapTypeId("roadmap");
     }
+  }, [map, is3D]);
+
+  // Re-assert 45° after every camera movement so tilt never silently resets.
+  useEffect(() => {
+    if (!map || !is3D) return;
+    const gmap = map as unknown as google.maps.Map;
+    const listener = gmap.addListener("idle", () => {
+      if ((gmap.getTilt() ?? 0) < 45) gmap.setTilt(45);
+    });
+    return () => google.maps.event.removeListener(listener);
   }, [map, is3D]);
 
   // Update deck.gl layers when hex data or 3D mode changes.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Map,
+  RenderingType,
   AdvancedMarker,
   MapControl,
   ControlPosition,
@@ -335,6 +336,17 @@ function RecenterButton({
   hasHexData?: boolean;
 }) {
   const map = useMap();
+  const [heading, setHeading] = useState(0);
+
+  // Track map heading so the compass needle stays in sync
+  useEffect(() => {
+    if (!map) return;
+    const gmap = map as unknown as google.maps.Map;
+    const listener = gmap.addListener("heading_changed", () => {
+      setHeading(gmap.getHeading() ?? 0);
+    });
+    return () => google.maps.event.removeListener(listener);
+  }, [map]);
 
   const tilt = is3DMode ? 45 : 0;
 
@@ -373,9 +385,62 @@ function RecenterButton({
       ? "bg-blue-600 border border-blue-400 text-white"
       : "bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 text-zinc-400 hover:text-white");
 
+  const gmap = map as unknown as google.maps.Map | null;
+
   return (
     <MapControl position={ControlPosition.RIGHT_BOTTOM}>
       <div className="mb-3 mr-3 flex flex-col gap-2">
+
+        {/* 3D rotation controls — compass + rotate buttons */}
+        {is3DMode && (
+          <>
+            {/* Compass rose — click to reset north */}
+            <button
+              className={btnClass}
+              onClick={() => gmap?.setHeading(0)}
+              title={`Compass — click to face north (heading ${Math.round(heading)}°)`}
+              style={{ overflow: "hidden" }}
+            >
+              <svg
+                viewBox="0 0 32 32"
+                width="22"
+                height="22"
+                style={{
+                  transform: `rotate(${-heading}deg)`,
+                  transition: "transform 0.15s ease",
+                }}
+              >
+                <circle cx="16" cy="16" r="14" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+                {/* North needle — red */}
+                <polygon points="16,4 18.5,16 16,13 13.5,16" fill="#ef4444" />
+                {/* South needle — zinc */}
+                <polygon points="16,28 18.5,16 16,19 13.5,16" fill="#52525b" />
+                <circle cx="16" cy="16" r="2" fill="#27272a" />
+                {/* N label */}
+                <text x="16" y="10.5" textAnchor="middle" fill="#ef4444" fontSize="5" fontFamily="sans-serif" fontWeight="bold">N</text>
+              </svg>
+            </button>
+
+            {/* Rotate left / right */}
+            <div className="flex gap-2">
+              <button
+                className="flex-1 h-10 bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm text-base"
+                onClick={() => gmap?.setHeading(((gmap.getHeading() ?? 0) - 15 + 360) % 360)}
+                title="Rotate left 15°"
+              >
+                ↺
+              </button>
+              <button
+                className="flex-1 h-10 bg-zinc-900/90 border border-zinc-700 hover:border-blue-500 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white transition-all shadow-lg backdrop-blur-sm text-base"
+                onClick={() => gmap?.setHeading(((gmap.getHeading() ?? 0) + 15) % 360)}
+                title="Rotate right 15°"
+              >
+                ↻
+              </button>
+            </div>
+          </>
+        )}
+
         {hasHexData && (
           <button
             className={btn3DClass}
@@ -766,17 +831,23 @@ export function MapView({
   // 'idle' = off, 'loading' = waiting for hybrid tiles + tilt, 'timeout' = took > 12 s
   const [tiltStatus, setTiltStatus] = useState<"idle" | "loading" | "timeout">("idle");
   const tiltTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [show3DHint, setShow3DHint] = useState(false);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (tiltTimeoutRef.current) clearTimeout(tiltTimeoutRef.current);
-    if (is3DMode) {
-      setTiltStatus("loading");
-      tiltTimeoutRef.current = setTimeout(() => setTiltStatus("timeout"), 12000);
-    } else {
+    if (!is3DMode) {
       setTiltStatus("idle");
+      setShow3DHint(false);
     }
-    return () => { if (tiltTimeoutRef.current) clearTimeout(tiltTimeoutRef.current); };
   }, [is3DMode]);
+
+  // Auto-dismiss the 3D entry hint after 5 seconds
+  useEffect(() => {
+    if (!show3DHint) return;
+    hintTimerRef.current = setTimeout(() => setShow3DHint(false), 5000);
+    return () => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current); };
+  }, [show3DHint]);
+
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Filter state ────────────────────────────────────────────────────────────
@@ -841,6 +912,7 @@ export function MapView({
     <div className="flex-1 bg-zinc-900 relative text-zinc-900">
       <Map
         mapId="CampusLensMap"
+        renderingType={RenderingType.VECTOR}
         defaultCenter={NATIONAL_CENTER}
         defaultZoom={NATIONAL_ZOOM}
         minZoom={NATIONAL_ZOOM}
@@ -887,6 +959,7 @@ export function MapView({
             onTiltReady={() => {
               if (tiltTimeoutRef.current) clearTimeout(tiltTimeoutRef.current);
               setTiltStatus("idle");
+              setShow3DHint(true);
             }}
           />
         )}
@@ -1002,6 +1075,20 @@ export function MapView({
               <span className="text-xs text-red-300">3D tiles didn't load — try zooming in or refreshing</span>
             </>
           )}
+        </div>
+      )}
+
+      {/* 3D entry hint — bottom-center, auto-dismisses after 5 s */}
+      {show3DHint && (
+        <div
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-4 py-2 rounded-full shadow-xl pointer-events-auto select-none cursor-pointer"
+          style={{ background: "rgba(9,9,11,0.92)", border: "1px solid #3f3f46", backdropFilter: "blur(8px)" }}
+          onClick={() => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current); setShow3DHint(false); }}
+          title="Click to dismiss"
+        >
+          <span className="text-sm">↺</span>
+          <span className="text-xs text-zinc-300">Ctrl+drag to rotate&nbsp;&nbsp;·&nbsp;&nbsp;Scroll to zoom&nbsp;&nbsp;·&nbsp;&nbsp;Use the compass to reset north</span>
+          <X className="w-3 h-3 text-zinc-500 shrink-0" />
         </div>
       )}
 
